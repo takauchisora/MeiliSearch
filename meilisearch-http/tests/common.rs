@@ -1,15 +1,31 @@
 #![allow(dead_code)]
 
+use actix_web::{http::StatusCode, test};
 use serde_json::{json, Value};
 use std::time::Duration;
-
-use actix_web::{http::StatusCode, test};
-use meilisearch_core::DatabaseOptions;
-use meilisearch_http::data::Data;
-use meilisearch_http::option::Opt;
-use meilisearch_http::helpers::NormalizePath;
 use tempdir::TempDir;
 use tokio::time::delay_for;
+
+use meilisearch_core::DatabaseOptions;
+use meilisearch_http::data::Data;
+use meilisearch_http::helpers::NormalizePath;
+use meilisearch_http::option::Opt;
+
+/// Performs a search test on both post and get routes
+#[macro_export]
+macro_rules! test_post_get_search {
+    ($server:expr, $query:expr, |$response:ident, $status_code:ident | $block:expr) => {
+        let post_query: meilisearch_http::routes::search::SearchQueryPost = serde_json::from_str(&$query.clone().to_string()).unwrap();
+        let get_query: meilisearch_http::routes::search::SearchQuery = post_query.into();
+        let get_query = ::serde_url_params::to_string(&get_query).unwrap();
+        let ($response, $status_code) = $server.search_get(&get_query).await;
+        let _ =::std::panic::catch_unwind(|| $block)
+            .map_err(|e| panic!("panic in get route: {:?}", e.downcast_ref::<&str>().unwrap()));
+        let ($response, $status_code) = $server.search_post($query).await;
+        let _ = ::std::panic::catch_unwind(|| $block)
+            .map_err(|e| panic!("panic in post route: {:?}", e.downcast_ref::<&str>().unwrap()));
+    };
+}
 
 pub struct Server {
     uid: String,
@@ -111,17 +127,19 @@ impl Server {
 
 
     pub async fn wait_update_id(&mut self, update_id: u64) {
-        loop {
+        // try 10 times to get status, or panic to not wait forever
+        for _ in 0..10 {
             let (response, status_code) = self.get_update_status(update_id).await;
             assert_eq!(status_code, 200);
 
-            if response["status"] == "processed" || response["status"] == "error" {
+            if response["status"] == "processed" || response["status"] == "failed" {
                 eprintln!("{:#?}", response);
                 return;
             }
 
             delay_for(Duration::from_secs(1)).await;
         }
+        panic!("Timeout waiting for update id");
     }
 
     // Global Http request GET/POST/DELETE async or sync
@@ -475,60 +493,5 @@ impl Server {
 
     pub async fn get_sys_info_pretty(&mut self) -> (Value, StatusCode) {
         self.get_request("/sys-info/pretty").await
-    }
-
-    // Populate routes
-
-    pub async fn populate_movies(&mut self) {
-        let body = json!({
-            "uid": "movies",
-            "primaryKey": "id",
-        });
-        self.create_index(body).await;
-
-        let body = json!({
-            "rankingRules": [
-                "typo",
-                "words",
-                "proximity",
-                "attribute",
-                "wordsPosition",
-                "desc(popularity)",
-                "exactness",
-                "desc(vote_average)",
-            ],
-            "searchableAttributes": [
-                "title",
-                "tagline",
-                "overview",
-                "cast",
-                "director",
-                "producer",
-                "production_companies",
-                "genres",
-            ],
-            "displayedAttributes": [
-                "title",
-                "director",
-                "producer",
-                "tagline",
-                "genres",
-                "id",
-                "overview",
-                "vote_count",
-                "vote_average",
-                "poster_path",
-                "popularity",
-            ],
-            "acceptNewFields": false,
-        });
-
-        self.update_all_settings(body).await;
-
-        let dataset = include_bytes!("assets/movies.json");
-
-        let body: Value = serde_json::from_slice(dataset).unwrap();
-
-        self.add_or_replace_multiple_documents(body).await;
     }
 }

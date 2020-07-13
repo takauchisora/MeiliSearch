@@ -24,7 +24,10 @@ use sdset::Set;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::{store, MResult};
+use meilisearch_error::ErrorCode;
+use meilisearch_types::DocumentId;
+
+use crate::{store, MResult, RankedMap};
 use crate::database::{MainT, UpdateT};
 use crate::settings::SettingsUpdate;
 
@@ -128,6 +131,12 @@ pub struct ProcessedUpdateResult {
     pub update_type: UpdateType,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub error: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error_type: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error_code: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error_link: Option<String>,
     pub duration: f64, // in seconds
     pub enqueued_at: DateTime<Utc>,
     pub processed_at: DateTime<Utc>,
@@ -288,7 +297,10 @@ pub fn update_task<'a, 'b>(
     let status = ProcessedUpdateResult {
         update_id,
         update_type,
-        error: result.map_err(|e| e.to_string()).err(),
+        error: result.as_ref().map_err(|e| e.to_string()).err(),
+        error_code: result.as_ref().map_err(|e| e.error_name()).err(),
+        error_type: result.as_ref().map_err(|e| e.error_type()).err(),
+        error_link: result.as_ref().map_err(|e| e.error_url()).err(),
         duration: duration.as_secs_f64(),
         enqueued_at,
         processed_at: Utc::now(),
@@ -359,4 +371,14 @@ where A: AsRef<[u8]>,
     }
 
     Ok(())
+}
+
+fn cache_document_ids_sorted(
+    writer: &mut heed::RwTxn<MainT>,
+    ranked_map: &RankedMap,
+    index: &store::Index,
+    document_ids: &mut [DocumentId],
+) -> MResult<()> {
+    crate::bucket_sort::placeholder_document_sort(document_ids, index, writer, ranked_map)?;
+    index.main.put_sorted_document_ids_cache(writer, &document_ids)
 }

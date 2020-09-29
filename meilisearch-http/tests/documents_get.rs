@@ -1,5 +1,5 @@
-use serde_json::json;
 use actix_web::http::StatusCode;
+use serde_json::json;
 
 mod common;
 

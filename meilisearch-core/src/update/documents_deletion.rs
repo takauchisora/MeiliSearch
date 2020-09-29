@@ -7,8 +7,8 @@ use crate::database::{MainT, UpdateT};
 use crate::database::{UpdateEvent, UpdateEventsEmitter};
 use crate::facets;
 use crate::store;
-use crate::update::{next_update_id, compute_short_prefixes, Update};
-use crate::{DocumentId, Error, MResult, RankedMap, MainWriter, Index};
+use crate::update::{compute_short_prefixes, next_update_id, Update};
+use crate::{DocumentId, Error, Index, MResult, MainWriter, RankedMap};
 
 pub struct DocumentsDeletion {
     updates_store: store::Updates,
@@ -37,18 +37,14 @@ impl DocumentsDeletion {
 
     pub fn finalize(self, writer: &mut heed::RwTxn<UpdateT>) -> MResult<u64> {
         let _ = self.updates_notifier.send(UpdateEvent::NewUpdate);
-        let update_id = push_documents_deletion(
-            writer,
-            self.updates_store,
-            self.updates_results_store,
-            self.external_docids,
-        )?;
+        let update_id =
+            push_documents_deletion(writer, self.updates_store, self.updates_results_store, self.external_docids)?;
         Ok(update_id)
     }
 }
 
 impl Extend<String> for DocumentsDeletion {
-    fn extend<T: IntoIterator<Item=String>>(&mut self, iter: T) {
+    fn extend<T: IntoIterator<Item = String>>(&mut self, iter: T) {
         self.external_docids.extend(iter)
     }
 }
@@ -71,8 +67,7 @@ pub fn apply_documents_deletion(
     writer: &mut heed::RwTxn<MainT>,
     index: &store::Index,
     external_docids: Vec<String>,
-) -> MResult<()>
-{
+) -> MResult<()> {
     let (external_docids, internal_docids) = {
         let new_external_docids = SetBuf::from_dirty(external_docids);
         let mut internal_docids = Vec::new();
@@ -119,10 +114,7 @@ pub fn apply_documents_deletion(
             let mut stream = words.stream();
             while let Some(word) = stream.next() {
                 let word = word.to_vec();
-                words_document_ids
-                    .entry(word)
-                    .or_insert_with(Vec::new)
-                    .push(id);
+                words_document_ids.entry(word).or_insert_with(Vec::new).push(id);
             }
         }
     }
@@ -186,15 +178,22 @@ pub fn apply_documents_deletion(
     Ok(())
 }
 
-/// rebuilds the document id cache by either removing deleted documents from the existing cache,
-/// and generating a new one from docs in store
-fn document_cache_remove_deleted(writer: &mut MainWriter, index: &Index, ranked_map: &RankedMap, documents_to_delete: &HashSet<DocumentId>) -> MResult<()> {
+/// rebuilds the document id cache by either removing deleted documents from the
+/// existing cache, and generating a new one from docs in store
+fn document_cache_remove_deleted(
+    writer: &mut MainWriter,
+    index: &Index,
+    ranked_map: &RankedMap,
+    documents_to_delete: &HashSet<DocumentId>,
+) -> MResult<()> {
     let new_cache = match index.main.sorted_document_ids_cache(writer)? {
         // only keep documents that are not in the list of deleted documents. Order is preserved,
         // no need to resort
-        Some(old_cache) => {
-            old_cache.iter().filter(|docid| !documents_to_delete.contains(docid)).cloned().collect::<Vec<_>>()
-        }
+        Some(old_cache) => old_cache
+            .iter()
+            .filter(|docid| !documents_to_delete.contains(docid))
+            .cloned()
+            .collect::<Vec<_>>(),
         // couldn't find cached documents, try building a new cache from documents in store
         None => {
             let mut document_ids = index.main.internal_docids(writer)?.to_vec();

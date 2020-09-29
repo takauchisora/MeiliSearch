@@ -72,10 +72,7 @@ async fn create_index_with_uid() {
     let (response, status_code) = server.create_index(body).await;
 
     assert_eq!(status_code, 400);
-    assert_eq!(
-        response["errorCode"].as_str().unwrap(),
-        "index_already_exists"
-    );
+    assert_eq!(response["errorCode"].as_str().unwrap(), "index_already_exists");
 
     // 2 - Check the list of indexes
 
@@ -479,7 +476,11 @@ async fn create_index_with_invalid_uid() {
     assert_eq!(status_code, 400);
     let message = response["message"].as_str().unwrap();
     assert_eq!(response.as_object().unwrap().len(), 4);
-    assert_eq!(message, "Index must have a valid uid; Index uid can be of type integer or string only composed of alphanumeric characters, hyphens (-) and underscores (_).");
+    assert_eq!(
+        message,
+        "Index must have a valid uid; Index uid can be of type integer or string only composed of alphanumeric \
+         characters, hyphens (-) and underscores (_)."
+    );
 
     // 2 - Create the index with invalid uid
 
@@ -492,7 +493,11 @@ async fn create_index_with_invalid_uid() {
     assert_eq!(status_code, 400);
     let message = response["message"].as_str().unwrap();
     assert_eq!(response.as_object().unwrap().len(), 4);
-    assert_eq!(message, "Index must have a valid uid; Index uid can be of type integer or string only composed of alphanumeric characters, hyphens (-) and underscores (_).");
+    assert_eq!(
+        message,
+        "Index must have a valid uid; Index uid can be of type integer or string only composed of alphanumeric \
+         characters, hyphens (-) and underscores (_)."
+    );
 
     // 3 - Create the index with invalid uid
 
@@ -505,7 +510,11 @@ async fn create_index_with_invalid_uid() {
     assert_eq!(status_code, 400);
     let message = response["message"].as_str().unwrap();
     assert_eq!(response.as_object().unwrap().len(), 4);
-    assert_eq!(message, "Index must have a valid uid; Index uid can be of type integer or string only composed of alphanumeric characters, hyphens (-) and underscores (_).");
+    assert_eq!(
+        message,
+        "Index must have a valid uid; Index uid can be of type integer or string only composed of alphanumeric \
+         characters, hyphens (-) and underscores (_)."
+    );
 
     // 4 - Create the index with invalid uid
 
@@ -518,10 +527,15 @@ async fn create_index_with_invalid_uid() {
     assert_eq!(status_code, 400);
     let message = response["message"].as_str().unwrap();
     assert_eq!(response.as_object().unwrap().len(), 4);
-    assert_eq!(message, "Index must have a valid uid; Index uid can be of type integer or string only composed of alphanumeric characters, hyphens (-) and underscores (_).");
+    assert_eq!(
+        message,
+        "Index must have a valid uid; Index uid can be of type integer or string only composed of alphanumeric \
+         characters, hyphens (-) and underscores (_)."
+    );
 }
 
-// Test that it's possible to add primary_key if it's not already set on index creation
+// Test that it's possible to add primary_key if it's not already set on index
+// creation
 #[actix_rt::test]
 async fn create_index_and_add_indentifier_after() {
     let mut server = common::Server::with_uid("movies");
@@ -637,7 +651,8 @@ async fn create_index_without_primary_key_and_search() {
     assert_eq!(response["hits"].as_array().unwrap().len(), 0);
 }
 
-// Test the error message when we push an document update and impossibility to find primary key
+// Test the error message when we push an document update and impossibility to
+// find primary key
 // Test issue https://github.com/meilisearch/MeiliSearch/issues/517
 #[actix_rt::test]
 async fn check_add_documents_without_primary_key() {
@@ -705,9 +720,7 @@ async fn get_empty_index() {
 async fn create_and_list_multiple_indices() {
     let mut server = common::Server::with_uid("test");
     for i in 0..10 {
-        server
-            .create_index(json!({ "uid": format!("test{}", i) }))
-            .await;
+        server.create_index(json!({ "uid": format!("test{}", i) })).await;
     }
     let (response, _status) = server.list_indexes().await;
     assert_eq!(response.as_array().unwrap().len(), 10);
@@ -751,9 +764,7 @@ async fn correct_response_no_primary_key_index() {
 #[actix_rt::test]
 async fn correct_response_with_primary_key_index() {
     let mut server = common::Server::with_uid("test");
-    let (response, _status) = server
-        .create_index(json!({ "uid": "test", "primaryKey": "test" }))
-        .await;
+    let (response, _status) = server.create_index(json!({ "uid": "test", "primaryKey": "test" })).await;
     assert_eq!(response["primaryKey"], "test");
 }
 
@@ -769,9 +780,7 @@ async fn udpate_unexisting_index_is_error() {
 #[actix_rt::test]
 async fn update_existing_primary_key_is_error() {
     let mut server = common::Server::with_uid("test");
-    server
-        .create_index(json!({ "uid": "test", "primaryKey": "key" }))
-        .await;
+    server.create_index(json!({ "uid": "test", "primaryKey": "key" })).await;
     let (response, status) = server.update_index(json!({ "primaryKey": "test2" })).await;
     assert_eq!(status, StatusCode::BAD_REQUEST);
     assert_eq!(response["errorCode"], "primary_key_already_present");

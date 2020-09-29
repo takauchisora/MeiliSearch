@@ -1,11 +1,11 @@
 use std::borrow::Cow;
 
-use heed::Result as ZResult;
 use heed::types::{ByteSlice, OwnedType};
+use heed::Result as ZResult;
 
+use super::BEU32;
 use crate::database::MainT;
 use crate::{DocumentId, FstSetCow};
-use super::BEU32;
 
 #[derive(Copy, Clone)]
 pub struct DocsWords {

@@ -1,5 +1,5 @@
-use std::collections::HashSet;
 use std::collections::btree_map::{BTreeMap, Entry};
+use std::collections::HashSet;
 use std::error::Error;
 use std::io::{Read, Write};
 use std::iter::FromIterator;
@@ -12,8 +12,8 @@ use serde::{Deserialize, Serialize};
 use structopt::StructOpt;
 use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
 
-use meilisearch_core::{Database, DatabaseOptions, Highlight, ProcessedUpdateResult};
 use meilisearch_core::settings::Settings;
+use meilisearch_core::{Database, DatabaseOptions, Highlight, ProcessedUpdateResult};
 use meilisearch_schema::FieldId;
 
 #[cfg(target_os = "linux")]
@@ -29,7 +29,8 @@ struct IndexCommand {
     #[structopt(long, default_value = "default")]
     index_uid: String,
 
-    /// The csv file path to index, you can also use `-` to specify the standard input.
+    /// The csv file path to index, you can also use `-` to specify the standard
+    /// input.
     #[structopt(parse(from_os_str))]
     csv_data_path: PathBuf,
 
@@ -109,8 +110,7 @@ fn index_command(command: IndexCommand, database: Database) -> Result<(), Box<dy
     let start = Instant::now();
 
     let (sender, receiver) = mpsc::sync_channel(100);
-    let update_fn =
-        move |_name: &str, update: ProcessedUpdateResult| sender.send(update.update_id).unwrap();
+    let update_fn = move |_name: &str, update: ProcessedUpdateResult| sender.send(update.update_id).unwrap();
     let index = match database.open_index(&command.index_uid) {
         Some(index) => index,
         None => database.create_index(&command.index_uid).unwrap(),
@@ -187,21 +187,13 @@ fn index_command(command: IndexCommand, database: Database) -> Result<(), Box<dy
         }
     }
 
-    println!(
-        "database created in {:.2?} at: {:?}",
-        start.elapsed(),
-        command.database_path
-    );
+    println!("database created in {:.2?} at: {:?}", start.elapsed(), command.database_path);
 
     if let Some(path) = command.compact_to_path {
         fs::create_dir_all(&path)?;
         let start = Instant::now();
         let _file = database.copy_and_compact_to_path(path.join("data.mdb"))?;
-        println!(
-            "database compacted in {:.2?} at: {:?}",
-            start.elapsed(),
-            path
-        );
+        println!("database compacted in {:.2?} at: {:?}", start.elapsed(), path);
     }
 
     Ok(())
@@ -217,11 +209,7 @@ fn display_highlights(text: &str, ranges: &[usize]) -> io::Result<()> {
             _ => unreachable!(),
         };
         if highlighted {
-            stdout.set_color(
-                ColorSpec::new()
-                    .set_fg(Some(Color::Yellow))
-                    .set_underline(true),
-            )?;
+            stdout.set_color(ColorSpec::new().set_fg(Some(Color::Yellow)).set_underline(true))?;
         }
         write!(&mut stdout, "{}", &text[start..end])?;
         stdout.reset()?;
@@ -280,7 +268,8 @@ fn create_highlight_areas(text: &str, highlights: &[Highlight]) -> Vec<usize> {
     title_areas
 }
 
-/// note: matches must have been sorted by `char_index` and `char_length` before being passed.
+/// note: matches must have been sorted by `char_index` and `char_length` before
+/// being passed.
 ///
 /// ```no_run
 /// matches.sort_unstable_by_key(|m| (m.char_index, m.char_length));
@@ -289,17 +278,10 @@ fn create_highlight_areas(text: &str, highlights: &[Highlight]) -> Vec<usize> {
 ///
 /// let (text, matches) = crop_text(&text, matches, 35);
 /// ```
-fn crop_text(
-    text: &str,
-    highlights: impl IntoIterator<Item = Highlight>,
-    context: usize,
-) -> (String, Vec<Highlight>) {
+fn crop_text(text: &str, highlights: impl IntoIterator<Item = Highlight>, context: usize) -> (String, Vec<Highlight>) {
     let mut highlights = highlights.into_iter().peekable();
 
-    let char_index = highlights
-        .peek()
-        .map(|m| m.char_index as usize)
-        .unwrap_or(0);
+    let char_index = highlights.peek().map(|m| m.char_index as usize).unwrap_or(0);
     let start = char_index.saturating_sub(context);
     let text = text.chars().skip(start).take(context * 2).collect();
 
@@ -316,9 +298,7 @@ fn crop_text(
 
 fn search_command(command: SearchCommand, database: Database) -> Result<(), Box<dyn Error>> {
     let db = &database;
-    let index = database
-        .open_index(&command.index_uid)
-        .expect("Could not find index");
+    let index = database.open_index(&command.index_uid).expect("Could not find index");
 
     let reader = db.main_read_txn().unwrap();
     let schema = index.main.schema(&reader)?;
@@ -355,15 +335,11 @@ fn search_command(command: SearchCommand, database: Database) -> Result<(), Box<
                         (true, filter)
                     };
 
-                    let attr = schema
-                        .id(filter)
-                        .expect("Could not find filtered attribute");
+                    let attr = schema.id(filter).expect("Could not find filtered attribute");
 
                     builder.with_filter(move |document_id| {
-                        let string: String = ref_index
-                            .document_attribute(ref_reader, document_id, attr)
-                            .unwrap()
-                            .unwrap();
+                        let string: String =
+                            ref_index.document_attribute(ref_reader, document_id, attr).unwrap().unwrap();
                         (string == "true") == positive
                     });
                 }
@@ -374,8 +350,7 @@ fn search_command(command: SearchCommand, database: Database) -> Result<(), Box<
 
                 let number_of_documents = result.documents.len();
                 for mut doc in result.documents {
-                    doc.highlights
-                        .sort_unstable_by_key(|m| (m.char_index, m.char_length));
+                    doc.highlights.sort_unstable_by_key(|m| (m.char_index, m.char_length));
 
                     let start_retrieve = Instant::now();
                     let result = index.document::<Document>(&reader, Some(&fields), doc.id);
@@ -388,13 +363,9 @@ fn search_command(command: SearchCommand, database: Database) -> Result<(), Box<
                                 print!("{}: ", name);
 
                                 let attr = schema.id(&name).unwrap();
-                                let highlights = doc
-                                    .highlights
-                                    .iter()
-                                    .filter(|m| FieldId::new(m.attribute) == attr)
-                                    .cloned();
-                                let (text, highlights) =
-                                    crop_text(&text, highlights, command.char_context);
+                                let highlights =
+                                    doc.highlights.iter().filter(|m| FieldId::new(m.attribute) == attr).cloned();
+                                let (text, highlights) = crop_text(&text, highlights, command.char_context);
                                 let areas = create_highlight_areas(&text, &highlights);
                                 display_highlights(&text, &areas)?;
                                 println!();
@@ -417,15 +388,8 @@ fn search_command(command: SearchCommand, database: Database) -> Result<(), Box<
                     println!();
                 }
 
-                eprintln!(
-                    "whole documents fields retrieve took {:.2?}",
-                    retrieve_duration
-                );
-                eprintln!(
-                    "===== Found {} results in {:.2?} =====",
-                    number_of_documents,
-                    start_total.elapsed()
-                );
+                eprintln!("whole documents fields retrieve took {:.2?}", retrieve_duration);
+                eprintln!("===== Found {} results in {:.2?} =====", number_of_documents, start_total.elapsed());
             }
             Err(err) => {
                 println!("Error: {:?}", err);
@@ -439,14 +403,9 @@ fn search_command(command: SearchCommand, database: Database) -> Result<(), Box<
     Ok(())
 }
 
-fn show_updates_command(
-    command: ShowUpdatesCommand,
-    database: Database,
-) -> Result<(), Box<dyn Error>> {
+fn show_updates_command(command: ShowUpdatesCommand, database: Database) -> Result<(), Box<dyn Error>> {
     let db = &database;
-    let index = database
-        .open_index(&command.index_uid)
-        .expect("Could not find index");
+    let index = database.open_index(&command.index_uid).expect("Could not find index");
 
     let reader = db.update_read_txn().unwrap();
     let updates = index.all_updates_status(&reader)?;

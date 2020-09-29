@@ -1,13 +1,10 @@
-use std::{error, fs};
 use std::io::{BufReader, Read};
 use std::path::PathBuf;
 use std::sync::Arc;
+use std::{error, fs};
 
 use rustls::internal::pemfile::{certs, pkcs8_private_keys, rsa_private_keys};
-use rustls::{
-    AllowAnyAnonymousOrAuthenticatedClient, AllowAnyAuthenticatedClient, NoClientAuth,
-    RootCertStore,
-};
+use rustls::{AllowAnyAnonymousOrAuthenticatedClient, AllowAnyAuthenticatedClient, NoClientAuth, RootCertStore};
 use structopt::StructOpt;
 
 const POSSIBLE_ENV: [&str; 2] = ["development", "production"];
@@ -26,10 +23,15 @@ pub struct Opt {
     #[structopt(long, env = "MEILI_MASTER_KEY")]
     pub master_key: Option<String>,
 
-    /// The Sentry DSN to use for error reporting. This defaults to the MeiliSearch Sentry project.
-    /// You can disable sentry all together using the `--no-sentry` flag or `MEILI_NO_SENTRY` environment variable.
+    /// The Sentry DSN to use for error reporting. This defaults to the
+    /// MeiliSearch Sentry project. You can disable sentry all together
+    /// using the `--no-sentry` flag or `MEILI_NO_SENTRY` environment variable.
     #[cfg(all(not(debug_assertions), feature = "sentry"))]
-    #[structopt(long, env = "SENTRY_DSN", default_value = "https://5ddfa22b95f241198be2271aaf028653@sentry.io/3060337")]
+    #[structopt(
+        long,
+        env = "SENTRY_DSN",
+        default_value = "https://5ddfa22b95f241198be2271aaf028653@sentry.io/3060337"
+    )]
     pub sentry_dsn: String,
 
     /// Disable Sentry error reporting.
@@ -37,10 +39,12 @@ pub struct Opt {
     #[structopt(long, env = "MEILI_NO_SENTRY")]
     pub no_sentry: bool,
 
-    /// This environment variable must be set to `production` if you are running in production.
-    /// If the server is running in development mode more logs will be displayed,
-    /// and the master key can be avoided which implies that there is no security on the updates routes.
-    /// This is useful to debug when integrating the engine with another service.
+    /// This environment variable must be set to `production` if you are running
+    /// in production. If the server is running in development mode more
+    /// logs will be displayed, and the master key can be avoided which
+    /// implies that there is no security on the updates routes.
+    /// This is useful to debug when integrating the engine with another
+    /// service.
     #[structopt(long, env = "MEILI_ENV", default_value = "development", possible_values = &POSSIBLE_ENV)]
     pub env: String,
 
@@ -82,7 +86,8 @@ pub struct Opt {
     #[structopt(long, env = "MEILI_SSL_OCSP_PATH", parse(from_os_str))]
     pub ssl_ocsp_path: Option<PathBuf>,
 
-    /// Send a fatal alert if the client does not complete client authentication.
+    /// Send a fatal alert if the client does not complete client
+    /// authentication.
     #[structopt(long, env = "MEILI_SSL_REQUIRE_AUTH")]
     pub ssl_require_auth: bool,
 
@@ -95,20 +100,24 @@ pub struct Opt {
     pub ssl_tickets: bool,
 
     /// Defines the path of the snapshot file to import.
-    /// This option will, by default, stop the process if a database already exist or if no snapshot exists at
-    /// the given path. If this option is not specified no snapshot is imported.
+    /// This option will, by default, stop the process if a database already
+    /// exist or if no snapshot exists at the given path. If this option is
+    /// not specified no snapshot is imported.
     #[structopt(long, env = "MEILI_LOAD_FROM_SNAPSHOT")]
     pub load_from_snapshot: Option<PathBuf>,
 
-    /// The engine will ignore a missing snapshot and not return an error in such case.
+    /// The engine will ignore a missing snapshot and not return an error in
+    /// such case.
     #[structopt(long, requires = "load-from-snapshot", env = "MEILI_IGNORE_MISSING_SNAPSHOT")]
     pub ignore_missing_snapshot: bool,
 
-    /// The engine will skip snapshot importation and not return an error in such case.
+    /// The engine will skip snapshot importation and not return an error in
+    /// such case.
     #[structopt(long, requires = "load-from-snapshot", env = "MEILI_IGNORE_SNAPSHOT_IF_DB_EXISTS")]
     pub ignore_snapshot_if_db_exists: bool,
 
-    /// Defines the directory path where meilisearch will create snapshot each snapshot_time_gap.
+    /// Defines the directory path where meilisearch will create snapshot each
+    /// snapshot_time_gap.
     #[structopt(long, env = "MEILI_SNAPSHOT_PATH")]
     pub snapshot_path: Option<PathBuf>,
 
@@ -169,8 +178,7 @@ fn load_certs(filename: PathBuf) -> Result<Vec<rustls::Certificate>, Box<dyn err
 
 fn load_private_key(filename: PathBuf) -> Result<rustls::PrivateKey, Box<dyn error::Error>> {
     let rsa_keys = {
-        let keyfile =
-            fs::File::open(filename.clone()).map_err(|_| "cannot open private key file")?;
+        let keyfile = fs::File::open(filename.clone()).map_err(|_| "cannot open private key file")?;
         let mut reader = BufReader::new(keyfile);
         rsa_private_keys(&mut reader).map_err(|_| "file contains invalid rsa private key")?
     };

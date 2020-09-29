@@ -23,12 +23,12 @@ where
     S::Future: 'static,
     B: 'static,
 {
+    type Error = actix_web::Error;
+    type Future = Ready<Result<Self::Transform, Self::InitError>>;
+    type InitError = ();
     type Request = ServiceRequest;
     type Response = ServiceResponse<B>;
-    type Error = actix_web::Error;
-    type InitError = ();
     type Transform = LoggingMiddleware<S>;
-    type Future = Ready<Result<Self::Transform, Self::InitError>>;
 
     fn new_transform(&self, service: S) -> Self::Future {
         ok(LoggingMiddleware {
@@ -50,10 +50,10 @@ where
     S::Future: 'static,
     B: 'static,
 {
-    type Request = ServiceRequest;
-    type Response = ServiceResponse<B>;
     type Error = actix_web::Error;
     type Future = Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>>>>;
+    type Request = ServiceRequest;
+    type Response = ServiceResponse<B>;
 
     fn poll_ready(&mut self, cx: &mut Context) -> Poll<Result<(), Self::Error>> {
         self.service.poll_ready(cx)
@@ -61,7 +61,8 @@ where
 
     fn call(&mut self, req: ServiceRequest) -> Self::Future {
         let mut svc = self.service.clone();
-        // This unwrap is left because this error should never appear. If that's the case, then
+        // This unwrap is left because this error should never appear. If that's the
+        // case, then
         // it means that actix-web has an issue or someone changes the type `Data`.
         let data = req.app_data::<web::Data<Data>>().unwrap();
 
@@ -95,9 +96,7 @@ where
         if authenticated {
             Box::pin(svc.call(req))
         } else {
-            Box::pin(err(
-                ResponseError::from(Error::InvalidToken(auth_header.to_string())).into()
-            ))
+            Box::pin(err(ResponseError::from(Error::InvalidToken(auth_header.to_string())).into()))
         }
     }
 }

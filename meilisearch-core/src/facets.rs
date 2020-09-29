@@ -5,7 +5,7 @@ use std::ops::Deref;
 
 use cow_utils::CowUtils;
 use either::Either;
-use heed::types::{Str, OwnedType};
+use heed::types::{OwnedType, Str};
 use indexmap::IndexMap;
 use serde_json::Value;
 
@@ -16,8 +16,9 @@ use crate::database::MainT;
 use crate::error::{FacetError, MResult};
 use crate::store::BEU16;
 
-/// Data structure used to represent a boolean expression in the form of nested arrays.
-/// Values in the outer array are and-ed together, values in the inner arrays are or-ed together.
+/// Data structure used to represent a boolean expression in the form of nested
+/// arrays. Values in the outer array are and-ed together, values in the inner
+/// arrays are or-ed together.
 #[derive(Debug, PartialEq)]
 pub struct FacetFilter(Vec<Either<Vec<FacetKey>, FacetKey>>);
 
@@ -30,11 +31,7 @@ impl Deref for FacetFilter {
 }
 
 impl FacetFilter {
-    pub fn from_str(
-        s: &str,
-        schema: &Schema,
-        attributes_for_faceting: &[FieldId],
-    ) -> MResult<FacetFilter> {
+    pub fn from_str(s: &str, schema: &Schema, attributes_for_faceting: &[FieldId]) -> MResult<FacetFilter> {
         if attributes_for_faceting.is_empty() {
             return Err(FacetError::NoAttributesForFaceting.into());
         }
@@ -48,7 +45,7 @@ impl FacetFilter {
                 for expr in and_exprs {
                     match expr {
                         Value::String(s) => {
-                            let key = FacetKey::from_str( &s, schema, attributes_for_faceting)?;
+                            let key = FacetKey::from_str(&s, schema, attributes_for_faceting)?;
                             filter.push(Either::Right(key));
                         }
                         Value::Array(or_exprs) => {
@@ -59,10 +56,12 @@ impl FacetFilter {
                             for expr in or_exprs {
                                 match expr {
                                     Value::String(s) => {
-                                        let key = FacetKey::from_str( &s, schema, attributes_for_faceting)?;
+                                        let key = FacetKey::from_str(&s, schema, attributes_for_faceting)?;
                                         inner.push(key);
                                     }
-                                    bad_value => return Err(FacetError::unexpected_token(&["String"], bad_value).into()),
+                                    bad_value => {
+                                        return Err(FacetError::unexpected_token(&["String"], bad_value).into());
+                                    }
                                 }
                             }
                             filter.push(Either::Left(inner));
@@ -84,8 +83,8 @@ pub struct FacetKey(FieldId, String);
 impl FacetKey {
     pub fn new(field_id: FieldId, value: String) -> Self {
         let value = match value.cow_to_lowercase() {
-                Cow::Borrowed(_) => value,
-                Cow::Owned(s) => s,
+            Cow::Borrowed(_) => value,
+            Cow::Owned(s) => s,
         };
         Self(field_id, value)
     }
@@ -99,38 +98,26 @@ impl FacetKey {
     }
 
     // TODO improve parser
-    fn from_str(
-        s: &str,
-        schema: &Schema,
-        attributes_for_faceting: &[FieldId],
-    ) -> Result<Self, FacetError> {
+    fn from_str(s: &str, schema: &Schema, attributes_for_faceting: &[FieldId]) -> Result<Self, FacetError> {
         let mut split = s.splitn(2, ':');
-        let key = split
-            .next()
-            .ok_or_else(|| FacetError::InvalidFormat(s.to_string()))?
-            .trim();
-        let field_id = schema
-            .id(key)
-            .ok_or_else(|| FacetError::AttributeNotFound(key.to_string()))?;
+        let key = split.next().ok_or_else(|| FacetError::InvalidFormat(s.to_string()))?.trim();
+        let field_id = schema.id(key).ok_or_else(|| FacetError::AttributeNotFound(key.to_string()))?;
 
         if !attributes_for_faceting.contains(&field_id) {
             return Err(FacetError::attribute_not_set(
-                    attributes_for_faceting
+                attributes_for_faceting
                     .iter()
                     .filter_map(|&id| schema.name(id))
                     .map(str::to_string)
                     .collect::<Vec<_>>(),
-                    key))
+                key,
+            ));
         }
-        let value = split
-            .next()
-            .ok_or_else(|| FacetError::InvalidFormat(s.to_string()))?
-            .trim();
+        let value = split.next().ok_or_else(|| FacetError::InvalidFormat(s.to_string()))?.trim();
         // unquoting the string if need be:
         let mut indices = value.char_indices();
-        let value =  match (indices.next(), indices.last()) {
-            (Some((s, '\'')), Some((e, '\''))) |
-            (Some((s, '\"')), Some((e, '\"'))) => value[s + 1..e].to_string(),
+        let value = match (indices.next(), indices.last()) {
+            (Some((s, '\'')), Some((e, '\''))) | (Some((s, '\"')), Some((e, '\"'))) => value[s + 1..e].to_string(),
             _ => value.to_string(),
         };
         Ok(Self::new(field_id, value))
@@ -186,14 +173,13 @@ pub fn facet_map_from_docids(
     document_ids: &[DocumentId],
     attributes_for_facetting: &[FieldId],
 ) -> MResult<HashMap<FacetKey, (String, Vec<DocumentId>)>> {
-    // A hashmap that ascociate a facet key to a pair containing the original facet attribute
-    // string with it's case preserved, and a list of document ids for that facet attribute.
+    // A hashmap that ascociate a facet key to a pair containing the original facet
+    // attribute
+    // string with it's case preserved, and a list of document ids for that facet
+    // attribute.
     let mut facet_map: HashMap<FacetKey, (String, Vec<DocumentId>)> = HashMap::new();
     for document_id in document_ids {
-        for result in index
-            .documents_fields
-            .document_fields(rtxn, *document_id)?
-        {
+        for result in index.documents_fields.document_fields(rtxn, *document_id)? {
             let (field_id, bytes) = result?;
             if attributes_for_facetting.contains(&field_id) {
                 match serde_json::from_slice(bytes)? {
@@ -248,10 +234,7 @@ mod test {
         let mut schema = Schema::new();
         let id = schema.insert_and_index("hello").unwrap();
         let facet_list = [schema.id("hello").unwrap()];
-        assert_eq!(
-            FacetKey::from_str("hello:12", &schema, &facet_list).unwrap(),
-            FacetKey::new(id, "12".to_string())
-        );
+        assert_eq!(FacetKey::from_str("hello:12", &schema, &facet_list).unwrap(), FacetKey::new(id, "12".to_string()));
         assert_eq!(
             FacetKey::from_str("hello:\"foo bar\"", &schema, &facet_list).unwrap(),
             FacetKey::new(id, "foo bar".to_string())
@@ -266,19 +249,10 @@ mod test {
             FacetKey::new(id, "blabla:machin".to_string())
         );
 
-        assert_eq!(
-            FacetKey::from_str("hello:\"\"", &schema, &facet_list).unwrap(),
-            FacetKey::new(id, "".to_string())
-        );
+        assert_eq!(FacetKey::from_str("hello:\"\"", &schema, &facet_list).unwrap(), FacetKey::new(id, "".to_string()));
 
-        assert_eq!(
-            FacetKey::from_str("hello:'", &schema, &facet_list).unwrap(),
-            FacetKey::new(id, "'".to_string())
-        );
-        assert_eq!(
-            FacetKey::from_str("hello:''", &schema, &facet_list).unwrap(),
-            FacetKey::new(id, "".to_string())
-        );
+        assert_eq!(FacetKey::from_str("hello:'", &schema, &facet_list).unwrap(), FacetKey::new(id, "'".to_string()));
+        assert_eq!(FacetKey::from_str("hello:''", &schema, &facet_list).unwrap(), FacetKey::new(id, "".to_string()));
         assert!(FacetKey::from_str("hello", &schema, &facet_list).is_err());
         assert!(FacetKey::from_str("toto:12", &schema, &facet_list).is_err());
     }
@@ -312,12 +286,7 @@ mod test {
             ])])
         );
         assert_eq!(
-            FacetFilter::from_str(
-                "[[\"hello:12\", \"hello:13\"], \"hello:14\"]",
-                &schema,
-                &facet_list
-            )
-            .unwrap(),
+            FacetFilter::from_str("[[\"hello:12\", \"hello:13\"], \"hello:14\"]", &schema, &facet_list).unwrap(),
             FacetFilter(vec![
                 Left(vec![
                     FacetKey(FieldId(0), "12".to_string()),
@@ -328,18 +297,10 @@ mod test {
         );
 
         // invalid array depths
-        assert!(FacetFilter::from_str(
-            "[[[\"hello:12\", \"hello:13\"], \"hello:14\"]]",
-            &schema,
-            &facet_list
-        )
-        .is_err());
-        assert!(FacetFilter::from_str(
-            "[[[\"hello:12\", \"hello:13\"]], \"hello:14\"]]",
-            &schema,
-            &facet_list
-        )
-        .is_err());
+        assert!(FacetFilter::from_str("[[[\"hello:12\", \"hello:13\"], \"hello:14\"]]", &schema, &facet_list).is_err());
+        assert!(
+            FacetFilter::from_str("[[[\"hello:12\", \"hello:13\"]], \"hello:14\"]]", &schema, &facet_list).is_err()
+        );
         assert!(FacetFilter::from_str("\"hello:14\"", &schema, &facet_list).is_err());
 
         // unexisting key

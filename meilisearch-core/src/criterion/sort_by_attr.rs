@@ -1,9 +1,9 @@
+use super::{Context, Criterion};
+use crate::{RankedMap, RawDocument};
+use meilisearch_schema::{FieldId, Schema};
 use std::cmp::Ordering;
 use std::error::Error;
 use std::fmt;
-use meilisearch_schema::{Schema, FieldId};
-use crate::{RankedMap, RawDocument};
-use super::{Criterion, Context};
 
 /// An helper struct that permit to sort documents by
 /// some of their stored attributes.
@@ -37,7 +37,6 @@ use super::{Criterion, Context};
 ///        .add(DocumentId);
 ///
 /// let criterion = builder.build();
-///
 /// ```
 pub struct SortByAttr<'a> {
     ranked_map: &'a RankedMap,
@@ -97,11 +96,7 @@ impl Criterion for SortByAttr<'_> {
         match (lhs, rhs) {
             (Some(lhs), Some(rhs)) => {
                 let order = lhs.cmp(&rhs);
-                if self.reversed {
-                    order.reverse()
-                } else {
-                    order
-                }
+                if self.reversed { order.reverse() } else { order }
             }
             (None, Some(_)) => Ordering::Greater,
             (Some(_), None) => Ordering::Less,

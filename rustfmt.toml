@@ -1,0 +1,14 @@
+edition = "2018"
+indent_style = "Block"
+max_width = 120
+attr_fn_like_width = 100
+chain_width = 80
+enum_discrim_align_threshold = 50
+fn_call_width = 100
+format_strings = true
+normalize_comments = true
+overflow_delimited_expr = true
+reorder_impl_items = true
+single_line_if_else_max_width = 80
+use_field_init_shorthand = true
+wrap_comments = true

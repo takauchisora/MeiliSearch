@@ -27,7 +27,7 @@ macro_rules! assert_error_async {
                 assert_eq!(response["status"], "failed");
                 assert_eq!(response["errorCode"], $code);
                 assert_eq!(response["errorType"], $type);
-                return
+                return;
             }
             thread::sleep(Duration::from_secs(1));
         }
@@ -47,17 +47,14 @@ async fn index_already_exists_error() {
         "index_already_exists",
         "invalid_request_error",
         StatusCode::BAD_REQUEST,
-        server.create_index(body).await);
+        server.create_index(body).await
+    );
 }
 
 #[actix_rt::test]
 async fn index_not_found_error() {
     let mut server = common::Server::with_uid("test");
-    assert_error!(
-        "index_not_found",
-        "invalid_request_error",
-        StatusCode::NOT_FOUND,
-        server.get_index().await);
+    assert_error!("index_not_found", "invalid_request_error", StatusCode::NOT_FOUND, server.get_index().await);
 }
 
 #[actix_rt::test]
@@ -75,7 +72,8 @@ async fn primary_key_already_present_error() {
         "primary_key_already_present",
         "invalid_request_error",
         StatusCode::BAD_REQUEST,
-        server.update_index(body).await);
+        server.update_index(body).await
+    );
 }
 
 #[actix_rt::test]
@@ -95,7 +93,8 @@ async fn max_field_limit_exceeded_error() {
         "max_fields_limit_exceeded",
         "invalid_request_error",
         server,
-        server.add_or_replace_multiple_documents_sync(docs).await);
+        server.add_or_replace_multiple_documents_sync(docs).await
+    );
 }
 
 #[actix_rt::test]
@@ -115,7 +114,8 @@ async fn missing_document_id() {
         "missing_document_id",
         "invalid_request_error",
         server,
-        server.add_or_replace_multiple_documents_sync(docs).await);
+        server.add_or_replace_multiple_documents_sync(docs).await
+    );
 }
 
 #[actix_rt::test]
@@ -125,11 +125,7 @@ async fn facet_error() {
         "q": "foo",
         "facetFilters": ["test:hello"]
     });
-    assert_error!(
-        "invalid_facet",
-        "invalid_request_error",
-        StatusCode::BAD_REQUEST,
-        server.search_post(search).await);
+    assert_error!("invalid_facet", "invalid_request_error", StatusCode::BAD_REQUEST, server.search_post(search).await);
 }
 
 #[actix_rt::test]
@@ -139,11 +135,7 @@ async fn filters_error() {
         "q": "foo",
         "filters": "fo:12"
     });
-    assert_error!(
-        "invalid_filter",
-        "invalid_request_error",
-        StatusCode::BAD_REQUEST,
-        server.search_post(search).await);
+    assert_error!("invalid_filter", "invalid_request_error", StatusCode::BAD_REQUEST, server.search_post(search).await);
 }
 
 #[actix_rt::test]
@@ -152,22 +144,14 @@ async fn bad_request_error() {
     let body = json!({
         "foo": "bar",
     });
-    assert_error!(
-        "bad_request",
-        "invalid_request_error",
-        StatusCode::BAD_REQUEST,
-        server.search_post(body).await);
+    assert_error!("bad_request", "invalid_request_error", StatusCode::BAD_REQUEST, server.search_post(body).await);
 }
 
 #[actix_rt::test]
 async fn document_not_found_error() {
     let mut server = common::Server::with_uid("test");
     server.create_index(json!({"uid": "test"})).await;
-    assert_error!(
-        "document_not_found",
-        "invalid_request_error",
-        StatusCode::NOT_FOUND,
-        server.get_document(100).await);
+    assert_error!("document_not_found", "invalid_request_error", StatusCode::NOT_FOUND, server.get_document(100).await);
 }
 
 #[actix_rt::test]
@@ -178,7 +162,8 @@ async fn payload_too_large_error() {
         "payload_too_large",
         "invalid_request_error",
         StatusCode::PAYLOAD_TOO_LARGE,
-        server.create_index(json!(bigvec)).await);
+        server.create_index(json!(bigvec)).await
+    );
 }
 
 #[actix_rt::test]
@@ -192,5 +177,6 @@ async fn missing_primary_key_error() {
         "missing_primary_key",
         "invalid_request_error",
         StatusCode::BAD_REQUEST,
-        server.add_or_replace_multiple_documents_sync(document).await);
+        server.add_or_replace_multiple_documents_sync(document).await
+    );
 }

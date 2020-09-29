@@ -4,7 +4,8 @@ use assert_json_diff::assert_json_eq;
 use serde_json::json;
 use serde_json::Value;
 
-#[macro_use] mod common;
+#[macro_use]
+mod common;
 
 #[actix_rt::test]
 async fn search_with_limit() {
@@ -1217,13 +1218,15 @@ async fn test_faceted_search_valid() {
 
     test_post_get_search!(server, query, |response, _status_code| {
         assert!(!response.get("hits").unwrap().as_array().unwrap().is_empty());
-        assert!(response
-            .get("hits")
-            .unwrap()
-            .as_array()
-            .unwrap()
-            .iter()
-            .all(|value| value.get("color").unwrap() == "Green"));
+        assert!(
+            response
+                .get("hits")
+                .unwrap()
+                .as_array()
+                .unwrap()
+                .iter()
+                .all(|value| value.get("color").unwrap() == "Green")
+        );
     });
 
     let query = json!({
@@ -1233,13 +1236,15 @@ async fn test_faceted_search_valid() {
 
     test_post_get_search!(server, query, |response, _status_code| {
         assert!(!response.get("hits").unwrap().as_array().unwrap().is_empty());
-        assert!(response
-            .get("hits")
-            .unwrap()
-            .as_array()
-            .unwrap()
-            .iter()
-            .all(|value| value.get("color").unwrap() == "blue"));
+        assert!(
+            response
+                .get("hits")
+                .unwrap()
+                .as_array()
+                .unwrap()
+                .iter()
+                .all(|value| value.get("color").unwrap() == "blue")
+        );
     });
 
     let query = json!({
@@ -1249,13 +1254,15 @@ async fn test_faceted_search_valid() {
 
     test_post_get_search!(server, query, |response, _status_code| {
         assert!(!response.get("hits").unwrap().as_array().unwrap().is_empty());
-        assert!(response
-            .get("hits")
-            .unwrap()
-            .as_array()
-            .unwrap()
-            .iter()
-            .all(|value| value.get("color").unwrap() == "blue"));
+        assert!(
+            response
+                .get("hits")
+                .unwrap()
+                .as_array()
+                .unwrap()
+                .iter()
+                .all(|value| value.get("color").unwrap() == "blue")
+        );
     });
 
     // test on arrays: ["tags:bug"]
@@ -1271,13 +1278,14 @@ async fn test_faceted_search_valid() {
     });
     test_post_get_search!(server, query, |response, _status_code| {
         assert!(!response.get("hits").unwrap().as_array().unwrap().is_empty());
-        assert!(response
-            .get("hits")
-            .unwrap()
-            .as_array()
-            .unwrap()
-            .iter()
-            .all(|value| value.get("tags").unwrap().as_array().unwrap().contains(&Value::String("bug".to_owned()))));
+        assert!(response.get("hits").unwrap().as_array().unwrap().iter().all(|value| {
+            value
+                .get("tags")
+                .unwrap()
+                .as_array()
+                .unwrap()
+                .contains(&Value::String("bug".to_owned()))
+        }));
     });
 
     // test and: ["color:blue", "tags:bug"]
@@ -1287,16 +1295,15 @@ async fn test_faceted_search_valid() {
     });
     test_post_get_search!(server, query, |response, _status_code| {
         assert!(!response.get("hits").unwrap().as_array().unwrap().is_empty());
-        assert!(response
-            .get("hits")
-            .unwrap()
-            .as_array()
-            .unwrap()
-            .iter()
-            .all(|value| value
-                .get("color")
-                .unwrap() == "blue"
-                && value.get("tags").unwrap().as_array().unwrap().contains(&Value::String("bug".to_owned()))));
+        assert!(response.get("hits").unwrap().as_array().unwrap().iter().all(|value| {
+            value.get("color").unwrap() == "blue"
+                && value
+                    .get("tags")
+                    .unwrap()
+                    .as_array()
+                    .unwrap()
+                    .contains(&Value::String("bug".to_owned()))
+        }));
     });
 
     // test or: [["color:blue", "color:green"]]
@@ -1306,19 +1313,15 @@ async fn test_faceted_search_valid() {
     });
     test_post_get_search!(server, query, |response, _status_code| {
         assert!(!response.get("hits").unwrap().as_array().unwrap().is_empty());
-        assert!(response
-            .get("hits")
-            .unwrap()
-            .as_array()
-            .unwrap()
-            .iter()
-            .all(|value|
-                value
-                .get("color")
-                .unwrap() == "blue"
-                || value
-                .get("color")
-                .unwrap() == "Green"));
+        assert!(
+            response
+                .get("hits")
+                .unwrap()
+                .as_array()
+                .unwrap()
+                .iter()
+                .all(|value| value.get("color").unwrap() == "blue" || value.get("color").unwrap() == "Green")
+        );
     });
     // test and-or: ["tags:bug", ["color:blue", "color:green"]]
     let query = json!({
@@ -1327,26 +1330,15 @@ async fn test_faceted_search_valid() {
     });
     test_post_get_search!(server, query, |response, _status_code| {
         assert!(!response.get("hits").unwrap().as_array().unwrap().is_empty());
-        assert!(response
-            .get("hits")
-            .unwrap()
-            .as_array()
-            .unwrap()
-            .iter()
-            .all(|value|
-                value
+        assert!(response.get("hits").unwrap().as_array().unwrap().iter().all(|value| {
+            value
                 .get("tags")
                 .unwrap()
                 .as_array()
                 .unwrap()
                 .contains(&Value::String("bug".to_owned()))
-                && (value
-                    .get("color")
-                    .unwrap() == "blue"
-                    || value
-                    .get("color")
-                    .unwrap() == "Green")));
-
+                && (value.get("color").unwrap() == "blue" || value.get("color").unwrap() == "Green")
+        }));
     });
 }
 
@@ -1354,14 +1346,13 @@ async fn test_faceted_search_valid() {
 async fn test_faceted_search_invalid() {
     let mut server = common::Server::test_server().await;
 
-    //no faceted attributes set
+    // no faceted attributes set
     let query = json!({
         "q": "a",
         "facetFilters": ["color:blue"]
     });
 
     test_post_get_search!(server, query, |response, status_code| {
-
         assert_eq!(status_code, 400);
         assert_eq!(response["errorCode"], "invalid_facet");
     });
@@ -1446,7 +1437,7 @@ async fn test_facet_count() {
     let query = json!({
         "q": "a",
     });
-    test_post_get_search!(server, query, |response, _status_code|{
+    test_post_get_search!(server, query, |response, _status_code| {
         assert!(response.get("exhaustiveFacetsCount").is_none());
         assert!(response.get("facetsDistribution").is_none());
     });
@@ -1456,7 +1447,7 @@ async fn test_facet_count() {
         "q": "a",
         "facetsDistribution": ["color"]
     });
-    test_post_get_search!(server, query.clone(), |_response, status_code|{
+    test_post_get_search!(server, query.clone(), |_response, status_code| {
         assert_eq!(status_code, 400);
     });
 
@@ -1465,24 +1456,33 @@ async fn test_facet_count() {
     });
     server.update_all_settings(body).await;
     // same as before, but now facets are set:
-    test_post_get_search!(server, query, |response, _status_code|{
+    test_post_get_search!(server, query, |response, _status_code| {
         assert!(response.get("exhaustiveFacetsCount").is_some());
-        assert_eq!(response.get("facetsDistribution").unwrap().as_object().unwrap().values().count(), 1);
+        assert_eq!(
+            response
+                .get("facetsDistribution")
+                .unwrap()
+                .as_object()
+                .unwrap()
+                .values()
+                .count(),
+            1
+        );
         // assert that case is preserved
-        assert!(response["facetsDistribution"]
-            .as_object()
-            .unwrap()["color"]
-            .as_object()
-            .unwrap()
-            .get("Green")
-            .is_some());
+        assert!(
+            response["facetsDistribution"].as_object().unwrap()["color"]
+                .as_object()
+                .unwrap()
+                .get("Green")
+                .is_some()
+        );
     });
     // searching on color and tags
     let query = json!({
         "q": "a",
         "facetsDistribution": ["color", "tags"]
     });
-    test_post_get_search!(server, query, |response, _status_code|{
+    test_post_get_search!(server, query, |response, _status_code| {
         let facets = response.get("facetsDistribution").unwrap().as_object().unwrap();
         assert_eq!(facets.values().count(), 2);
         assert_ne!(!facets.get("color").unwrap().as_object().unwrap().values().count(), 0);
@@ -1493,16 +1493,34 @@ async fn test_facet_count() {
         "q": "a",
         "facetsDistribution": ["*"]
     });
-    test_post_get_search!(server, query, |response, _status_code|{
-        assert_eq!(response.get("facetsDistribution").unwrap().as_object().unwrap().values().count(), 2);
+    test_post_get_search!(server, query, |response, _status_code| {
+        assert_eq!(
+            response
+                .get("facetsDistribution")
+                .unwrap()
+                .as_object()
+                .unwrap()
+                .values()
+                .count(),
+            2
+        );
     });
     // wildcard with other attributes:
     let query = json!({
         "q": "a",
         "facetsDistribution": ["color", "*"]
     });
-    test_post_get_search!(server, query, |response, _status_code|{
-        assert_eq!(response.get("facetsDistribution").unwrap().as_object().unwrap().values().count(), 2);
+    test_post_get_search!(server, query, |response, _status_code| {
+        assert_eq!(
+            response
+                .get("facetsDistribution")
+                .unwrap()
+                .as_object()
+                .unwrap()
+                .values()
+                .count(),
+            2
+        );
     });
 
     // empty facet list
@@ -1510,8 +1528,17 @@ async fn test_facet_count() {
         "q": "a",
         "facetsDistribution": []
     });
-    test_post_get_search!(server, query, |response, _status_code|{
-        assert_eq!(response.get("facetsDistribution").unwrap().as_object().unwrap().values().count(), 0);
+    test_post_get_search!(server, query, |response, _status_code| {
+        assert_eq!(
+            response
+                .get("facetsDistribution")
+                .unwrap()
+                .as_object()
+                .unwrap()
+                .values()
+                .count(),
+            0
+        );
     });
 
     // attr not set as facet passed:
@@ -1519,10 +1546,9 @@ async fn test_facet_count() {
         "q": "a",
         "facetsDistribution": ["gender"]
     });
-    test_post_get_search!(server, query, |_response, status_code|{
+    test_post_get_search!(server, query, |_response, status_code| {
         assert_eq!(status_code, 400);
     });
-
 }
 
 #[actix_rt::test]
@@ -1557,7 +1583,7 @@ async fn highlight_cropped_text() {
     let doc = json!([
         {
             "id": 1,
-            "body": r##"well, it may not work like that, try the following: 
+            "body": r##"well, it may not work like that, try the following:
 1. insert your trip
 2. google your `searchQuery`
 3. find a solution 
@@ -1567,7 +1593,8 @@ async fn highlight_cropped_text() {
     server.add_or_replace_multiple_documents(doc).await;
 
     // tests from #680
-    //let query = "q=insert&attributesToHighlight=*&attributesToCrop=body&cropLength=30";
+    // let query =
+    // "q=insert&attributesToHighlight=*&attributesToCrop=body&cropLength=30";
     let query = json!({
         "q": "insert",
         "attributesToHighlight": ["*"],
@@ -1575,50 +1602,56 @@ async fn highlight_cropped_text() {
         "cropLength": 30,
     });
     let expected_response = "that, try the following: \n1. <em>insert</em> your trip\n2. google your";
-    test_post_get_search!(server, query, |response, _status_code|{
-        assert_eq!(response
-            .get("hits")
-            .unwrap()
-            .as_array()
-            .unwrap()
-            .get(0)
-            .unwrap()
-            .as_object()
-            .unwrap()
-            .get("_formatted")
-            .unwrap()
-            .as_object()
-            .unwrap()
-            .get("body")
-            .unwrap()
-            , &Value::String(expected_response.to_owned()));
+    test_post_get_search!(server, query, |response, _status_code| {
+        assert_eq!(
+            response
+                .get("hits")
+                .unwrap()
+                .as_array()
+                .unwrap()
+                .get(0)
+                .unwrap()
+                .as_object()
+                .unwrap()
+                .get("_formatted")
+                .unwrap()
+                .as_object()
+                .unwrap()
+                .get("body")
+                .unwrap(),
+            &Value::String(expected_response.to_owned())
+        );
     });
 
-    //let query = "q=insert&attributesToHighlight=*&attributesToCrop=body&cropLength=80";
+    // let query =
+    // "q=insert&attributesToHighlight=*&attributesToCrop=body&cropLength=80";
     let query = json!({
         "q": "insert",
         "attributesToHighlight": ["*"],
         "attributesToCrop": ["body"],
         "cropLength": 80,
     });
-    let expected_response = "well, it may not work like that, try the following: \n1. <em>insert</em> your trip\n2. google your `searchQuery`\n3. find a solution \n> say hello";
+    let expected_response = "well, it may not work like that, try the following: \n1. <em>insert</em> your trip\n2. \
+                             google your `searchQuery`\n3. find a solution \n> say hello";
     test_post_get_search!(server, query, |response, _status_code| {
-        assert_eq!(response
-            .get("hits")
-            .unwrap()
-            .as_array()
-            .unwrap()
-            .get(0)
-            .unwrap()
-            .as_object()
-            .unwrap()
-            .get("_formatted")
-            .unwrap()
-            .as_object()
-            .unwrap()
-            .get("body")
-            .unwrap()
-            , &Value::String(expected_response.to_owned()));
+        assert_eq!(
+            response
+                .get("hits")
+                .unwrap()
+                .as_array()
+                .unwrap()
+                .get(0)
+                .unwrap()
+                .as_object()
+                .unwrap()
+                .get("_formatted")
+                .unwrap()
+                .as_object()
+                .unwrap()
+                .get("body")
+                .unwrap(),
+            &Value::String(expected_response.to_owned())
+        );
     });
 }
 
@@ -1632,7 +1665,6 @@ async fn well_formated_error_with_bad_request_params() {
     assert!(response.get("errorType").is_some());
     assert!(response.get("errorLink").is_some());
 }
-
 
 #[actix_rt::test]
 async fn update_documents_with_facet_distribution() {
@@ -1709,7 +1741,7 @@ async fn test_facet_count_with_facet_filter() {
         "facetFilters": ["gender:male"],
     });
 
-    test_post_get_search!(server, query, |response, _status_code|{
+    test_post_get_search!(server, query, |response, _status_code| {
         assert!(response.get("exhaustiveFacetsCount").is_some());
         let facets_distribution = response.get("facetsDistribution").unwrap().as_object();
         assert_eq!(facets_distribution.unwrap()["gender"]["male"], 37);
@@ -1722,7 +1754,7 @@ async fn test_facet_count_with_facet_filter() {
         "facetFilters": [["gender:male", "gender:female"]],
     });
 
-    test_post_get_search!(server, query, |response, _status_code|{
+    test_post_get_search!(server, query, |response, _status_code| {
         assert!(response.get("exhaustiveFacetsCount").is_some());
         let facets_distribution = response.get("facetsDistribution").unwrap().as_object();
         assert_eq!(facets_distribution.unwrap()["gender"]["male"], 37);

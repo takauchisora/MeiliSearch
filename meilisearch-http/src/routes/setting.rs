@@ -1,5 +1,5 @@
-use actix_web::{web, HttpResponse};
 use actix_web::{delete, get, post};
+use actix_web::{web, HttpResponse};
 use meilisearch_core::settings::{Settings, SettingsUpdate, UpdateState, DEFAULT_RANKING_RULES};
 use meilisearch_schema::Schema;
 use std::collections::{BTreeMap, BTreeSet, HashSet};
@@ -42,10 +42,7 @@ async fn update_all(
         .ok_or(Error::index_not_found(&path.index_uid))?;
 
     let update_id = data.db.update_write::<_, _, ResponseError>(|writer| {
-        let settings = body
-            .into_inner()
-            .to_update()
-            .map_err(Error::bad_request)?;
+        let settings = body.into_inner().to_update().map_err(Error::bad_request)?;
         let update_id = index.settings_update(writer, settings)?;
         Ok(update_id)
     })?;
@@ -54,10 +51,7 @@ async fn update_all(
 }
 
 #[get("/indexes/{index_uid}/settings", wrap = "Authentication::Private")]
-async fn get_all(
-    data: web::Data<Data>,
-    path: web::Path<IndexParam>,
-) -> Result<HttpResponse, ResponseError> {
+async fn get_all(data: web::Data<Data>, path: web::Path<IndexParam>) -> Result<HttpResponse, ResponseError> {
     let index = data
         .db
         .open_index(&path.index_uid)
@@ -65,11 +59,7 @@ async fn get_all(
 
     let reader = data.db.main_read_txn()?;
 
-    let stop_words: BTreeSet<String> = index
-        .main
-        .stop_words(&reader)?
-        .into_iter()
-        .collect();
+    let stop_words: BTreeSet<String> = index.main.stop_words(&reader)?.into_iter().collect();
 
     let synonyms_list = index.main.synonyms(&reader)?;
 
@@ -97,13 +87,7 @@ async fn get_all(
     };
 
     let attributes_for_faceting = match (&schema, &index.main.attributes_for_faceting(&reader)?) {
-        (Some(schema), Some(attrs)) => {
-            attrs
-                .iter()
-                .filter_map(|&id| schema.name(id))
-                .map(str::to_string)
-                .collect()
-        }
+        (Some(schema), Some(attrs)) => attrs.iter().filter_map(|&id| schema.name(id)).map(str::to_string).collect(),
         _ => vec![],
     };
 
@@ -124,10 +108,7 @@ async fn get_all(
 }
 
 #[delete("/indexes/{index_uid}/settings", wrap = "Authentication::Private")]
-async fn delete_all(
-    data: web::Data<Data>,
-    path: web::Path<IndexParam>,
-) -> Result<HttpResponse, ResponseError> {
+async fn delete_all(data: web::Data<Data>, path: web::Path<IndexParam>) -> Result<HttpResponse, ResponseError> {
     let index = data
         .db
         .open_index(&path.index_uid)
@@ -149,14 +130,8 @@ async fn delete_all(
     Ok(HttpResponse::Accepted().json(IndexUpdateResponse::with_id(update_id)))
 }
 
-#[get(
-    "/indexes/{index_uid}/settings/ranking-rules",
-    wrap = "Authentication::Private"
-)]
-async fn get_rules(
-    data: web::Data<Data>,
-    path: web::Path<IndexParam>,
-) -> Result<HttpResponse, ResponseError> {
+#[get("/indexes/{index_uid}/settings/ranking-rules", wrap = "Authentication::Private")]
+async fn get_rules(data: web::Data<Data>, path: web::Path<IndexParam>) -> Result<HttpResponse, ResponseError> {
     let index = data
         .db
         .open_index(&path.index_uid)
@@ -174,10 +149,7 @@ async fn get_rules(
     Ok(HttpResponse::Ok().json(ranking_rules))
 }
 
-#[post(
-    "/indexes/{index_uid}/settings/ranking-rules",
-    wrap = "Authentication::Private"
-)]
+#[post("/indexes/{index_uid}/settings/ranking-rules", wrap = "Authentication::Private")]
 async fn update_rules(
     data: web::Data<Data>,
     path: web::Path<IndexParam>,
@@ -199,14 +171,8 @@ async fn update_rules(
     Ok(HttpResponse::Accepted().json(IndexUpdateResponse::with_id(update_id)))
 }
 
-#[delete(
-    "/indexes/{index_uid}/settings/ranking-rules",
-    wrap = "Authentication::Private"
-)]
-async fn delete_rules(
-    data: web::Data<Data>,
-    path: web::Path<IndexParam>,
-) -> Result<HttpResponse, ResponseError> {
+#[delete("/indexes/{index_uid}/settings/ranking-rules", wrap = "Authentication::Private")]
+async fn delete_rules(data: web::Data<Data>, path: web::Path<IndexParam>) -> Result<HttpResponse, ResponseError> {
     let index = data
         .db
         .open_index(&path.index_uid)
@@ -222,14 +188,8 @@ async fn delete_rules(
     Ok(HttpResponse::Accepted().json(IndexUpdateResponse::with_id(update_id)))
 }
 
-#[get(
-    "/indexes/{index_uid}/settings/distinct-attribute",
-    wrap = "Authentication::Private"
-)]
-async fn get_distinct(
-    data: web::Data<Data>,
-    path: web::Path<IndexParam>,
-) -> Result<HttpResponse, ResponseError> {
+#[get("/indexes/{index_uid}/settings/distinct-attribute", wrap = "Authentication::Private")]
+async fn get_distinct(data: web::Data<Data>, path: web::Path<IndexParam>) -> Result<HttpResponse, ResponseError> {
     let index = data
         .db
         .open_index(&path.index_uid)
@@ -245,10 +205,7 @@ async fn get_distinct(
     Ok(HttpResponse::Ok().json(distinct_attribute))
 }
 
-#[post(
-    "/indexes/{index_uid}/settings/distinct-attribute",
-    wrap = "Authentication::Private"
-)]
+#[post("/indexes/{index_uid}/settings/distinct-attribute", wrap = "Authentication::Private")]
 async fn update_distinct(
     data: web::Data<Data>,
     path: web::Path<IndexParam>,
@@ -270,14 +227,8 @@ async fn update_distinct(
     Ok(HttpResponse::Accepted().json(IndexUpdateResponse::with_id(update_id)))
 }
 
-#[delete(
-    "/indexes/{index_uid}/settings/distinct-attribute",
-    wrap = "Authentication::Private"
-)]
-async fn delete_distinct(
-    data: web::Data<Data>,
-    path: web::Path<IndexParam>,
-) -> Result<HttpResponse, ResponseError> {
+#[delete("/indexes/{index_uid}/settings/distinct-attribute", wrap = "Authentication::Private")]
+async fn delete_distinct(data: web::Data<Data>, path: web::Path<IndexParam>) -> Result<HttpResponse, ResponseError> {
     let index = data
         .db
         .open_index(&path.index_uid)
@@ -293,30 +244,20 @@ async fn delete_distinct(
     Ok(HttpResponse::Accepted().json(IndexUpdateResponse::with_id(update_id)))
 }
 
-#[get(
-    "/indexes/{index_uid}/settings/searchable-attributes",
-    wrap = "Authentication::Private"
-)]
-async fn get_searchable(
-    data: web::Data<Data>,
-    path: web::Path<IndexParam>,
-) -> Result<HttpResponse, ResponseError> {
+#[get("/indexes/{index_uid}/settings/searchable-attributes", wrap = "Authentication::Private")]
+async fn get_searchable(data: web::Data<Data>, path: web::Path<IndexParam>) -> Result<HttpResponse, ResponseError> {
     let index = data
         .db
         .open_index(&path.index_uid)
         .ok_or(Error::index_not_found(&path.index_uid))?;
     let reader = data.db.main_read_txn()?;
     let schema = index.main.schema(&reader)?;
-    let searchable_attributes: Option<Vec<String>> =
-        schema.as_ref().map(get_indexed_attributes);
+    let searchable_attributes: Option<Vec<String>> = schema.as_ref().map(get_indexed_attributes);
 
     Ok(HttpResponse::Ok().json(searchable_attributes))
 }
 
-#[post(
-    "/indexes/{index_uid}/settings/searchable-attributes",
-    wrap = "Authentication::Private"
-)]
+#[post("/indexes/{index_uid}/settings/searchable-attributes", wrap = "Authentication::Private")]
 async fn update_searchable(
     data: web::Data<Data>,
     path: web::Path<IndexParam>,
@@ -339,14 +280,8 @@ async fn update_searchable(
     Ok(HttpResponse::Accepted().json(IndexUpdateResponse::with_id(update_id)))
 }
 
-#[delete(
-    "/indexes/{index_uid}/settings/searchable-attributes",
-    wrap = "Authentication::Private"
-)]
-async fn delete_searchable(
-    data: web::Data<Data>,
-    path: web::Path<IndexParam>,
-) -> Result<HttpResponse, ResponseError> {
+#[delete("/indexes/{index_uid}/settings/searchable-attributes", wrap = "Authentication::Private")]
+async fn delete_searchable(data: web::Data<Data>, path: web::Path<IndexParam>) -> Result<HttpResponse, ResponseError> {
     let index = data
         .db
         .open_index(&path.index_uid)
@@ -362,14 +297,8 @@ async fn delete_searchable(
     Ok(HttpResponse::Accepted().json(IndexUpdateResponse::with_id(update_id)))
 }
 
-#[get(
-    "/indexes/{index_uid}/settings/displayed-attributes",
-    wrap = "Authentication::Private"
-)]
-async fn get_displayed(
-    data: web::Data<Data>,
-    path: web::Path<IndexParam>,
-) -> Result<HttpResponse, ResponseError> {
+#[get("/indexes/{index_uid}/settings/displayed-attributes", wrap = "Authentication::Private")]
+async fn get_displayed(data: web::Data<Data>, path: web::Path<IndexParam>) -> Result<HttpResponse, ResponseError> {
     let index = data
         .db
         .open_index(&path.index_uid)
@@ -383,10 +312,7 @@ async fn get_displayed(
     Ok(HttpResponse::Ok().json(displayed_attributes))
 }
 
-#[post(
-    "/indexes/{index_uid}/settings/displayed-attributes",
-    wrap = "Authentication::Private"
-)]
+#[post("/indexes/{index_uid}/settings/displayed-attributes", wrap = "Authentication::Private")]
 async fn update_displayed(
     data: web::Data<Data>,
     path: web::Path<IndexParam>,
@@ -408,14 +334,8 @@ async fn update_displayed(
     Ok(HttpResponse::Accepted().json(IndexUpdateResponse::with_id(update_id)))
 }
 
-#[delete(
-    "/indexes/{index_uid}/settings/displayed-attributes",
-    wrap = "Authentication::Private"
-)]
-async fn delete_displayed(
-    data: web::Data<Data>,
-    path: web::Path<IndexParam>,
-) -> Result<HttpResponse, ResponseError> {
+#[delete("/indexes/{index_uid}/settings/displayed-attributes", wrap = "Authentication::Private")]
+async fn delete_displayed(data: web::Data<Data>, path: web::Path<IndexParam>) -> Result<HttpResponse, ResponseError> {
     let index = data
         .db
         .open_index(&path.index_uid)
@@ -431,10 +351,7 @@ async fn delete_displayed(
     Ok(HttpResponse::Accepted().json(IndexUpdateResponse::with_id(update_id)))
 }
 
-#[get(
-    "/indexes/{index_uid}/settings/attributes-for-faceting",
-    wrap = "Authentication::Private"
-)]
+#[get("/indexes/{index_uid}/settings/attributes-for-faceting", wrap = "Authentication::Private")]
 async fn get_attributes_for_faceting(
     data: web::Data<Data>,
     path: web::Path<IndexParam>,
@@ -444,20 +361,12 @@ async fn get_attributes_for_faceting(
         .open_index(&path.index_uid)
         .ok_or(Error::index_not_found(&path.index_uid))?;
 
-    let attributes_for_faceting = data
-        .db
-        .main_read::<_, _, ResponseError>(|reader| {
+    let attributes_for_faceting = data.db.main_read::<_, _, ResponseError>(|reader| {
         let schema = index.main.schema(reader)?;
         let attrs = index.main.attributes_for_faceting(reader)?;
         let attr_names = match (&schema, &attrs) {
-            (Some(schema), Some(attrs)) => {
-                attrs
-                    .iter()
-                    .filter_map(|&id| schema.name(id))
-                    .map(str::to_string)
-                    .collect()
-            }
-            _ => vec![]
+            (Some(schema), Some(attrs)) => attrs.iter().filter_map(|&id| schema.name(id)).map(str::to_string).collect(),
+            _ => vec![],
         };
         Ok(attr_names)
     })?;
@@ -465,10 +374,7 @@ async fn get_attributes_for_faceting(
     Ok(HttpResponse::Ok().json(attributes_for_faceting))
 }
 
-#[post(
-    "/indexes/{index_uid}/settings/attributes-for-faceting",
-    wrap = "Authentication::Private"
-)]
+#[post("/indexes/{index_uid}/settings/attributes-for-faceting", wrap = "Authentication::Private")]
 async fn update_attributes_for_faceting(
     data: web::Data<Data>,
     path: web::Path<IndexParam>,
@@ -490,10 +396,7 @@ async fn update_attributes_for_faceting(
     Ok(HttpResponse::Accepted().json(IndexUpdateResponse::with_id(update_id)))
 }
 
-#[delete(
-    "/indexes/{index_uid}/settings/attributes-for-faceting",
-    wrap = "Authentication::Private"
-)]
+#[delete("/indexes/{index_uid}/settings/attributes-for-faceting", wrap = "Authentication::Private")]
 async fn delete_attributes_for_faceting(
     data: web::Data<Data>,
     path: web::Path<IndexParam>,
@@ -517,10 +420,7 @@ fn get_indexed_attributes(schema: &Schema) -> Vec<String> {
     if schema.is_indexed_all() {
         ["*"].iter().map(|s| s.to_string()).collect()
     } else {
-        schema.indexed_name()
-            .iter()
-            .map(|s| s.to_string())
-            .collect()
+        schema.indexed_name().iter().map(|s| s.to_string()).collect()
     }
 }
 
@@ -528,9 +428,6 @@ fn get_displayed_attributes(schema: &Schema) -> HashSet<String> {
     if schema.is_displayed_all() {
         ["*"].iter().map(|s| s.to_string()).collect()
     } else {
-        schema.displayed_name()
-            .iter()
-            .map(|s| s.to_string())
-            .collect()
+        schema.displayed_name().iter().map(|s| s.to_string()).collect()
     }
 }

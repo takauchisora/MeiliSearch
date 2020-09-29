@@ -79,7 +79,6 @@ pub enum Code {
 }
 
 impl Code {
-
     /// ascociate a `Code` variant to the actual ErrCode
     fn err_code(&self) -> ErrCode {
         use Code::*;
@@ -115,8 +114,10 @@ impl Code {
             DocumentNotFound => ErrCode::invalid("document_not_found", StatusCode::NOT_FOUND),
             Internal => ErrCode::internal("internal", StatusCode::INTERNAL_SERVER_ERROR),
             InvalidToken => ErrCode::authentication("invalid_token", StatusCode::FORBIDDEN),
-            Maintenance =>  ErrCode::internal("maintenance", StatusCode::SERVICE_UNAVAILABLE),
-            MissingAuthorizationHeader => ErrCode::authentication("missing_authorization_header", StatusCode::UNAUTHORIZED),
+            Maintenance => ErrCode::internal("maintenance", StatusCode::SERVICE_UNAVAILABLE),
+            MissingAuthorizationHeader => {
+                ErrCode::authentication("missing_authorization_header", StatusCode::UNAUTHORIZED)
+            }
             NotFound => ErrCode::invalid("not_found", StatusCode::NOT_FOUND),
             PayloadTooLarge => ErrCode::invalid("payload_too_large", StatusCode::PAYLOAD_TOO_LARGE),
             RetrieveDocument => ErrCode::internal("unretrievable_document", StatusCode::BAD_REQUEST),

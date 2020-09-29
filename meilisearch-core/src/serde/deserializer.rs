@@ -2,7 +2,7 @@ use std::collections::HashSet;
 use std::io::Cursor;
 use std::{error::Error, fmt};
 
-use meilisearch_schema::{Schema, FieldId};
+use meilisearch_schema::{FieldId, Schema};
 use serde::{de, forward_to_deserialize_any};
 use serde_json::de::IoRead as SerdeJsonIoRead;
 use serde_json::Deserializer as SerdeJsonDeserializer;
@@ -60,6 +60,12 @@ pub struct Deserializer<'a> {
 impl<'de, 'a, 'b> de::Deserializer<'de> for &'b mut Deserializer<'a> {
     type Error = DeserializerError;
 
+    forward_to_deserialize_any! {
+        bool i8 i16 i32 i64 i128 u8 u16 u32 u64 u128 f32 f64 char str string
+        bytes byte_buf unit unit_struct newtype_struct seq tuple
+        tuple_struct struct enum identifier ignored_any
+    }
+
     fn deserialize_any<V>(self, visitor: V) -> Result<V::Value, Self::Error>
     where
         V: de::Visitor<'de>,
@@ -113,9 +119,7 @@ impl<'de, 'a, 'b> de::Deserializer<'de> for &'b mut Deserializer<'a> {
         let result = match iter.peek() {
             Some(_) => {
                 let map_deserializer = de::value::MapDeserializer::new(iter);
-                visitor
-                    .visit_some(map_deserializer)
-                    .map_err(DeserializerError::from)
+                visitor.visit_some(map_deserializer).map_err(DeserializerError::from)
             }
             None => visitor.visit_none(),
         };
@@ -124,12 +128,6 @@ impl<'de, 'a, 'b> de::Deserializer<'de> for &'b mut Deserializer<'a> {
             Some(error) => Err(error.into()),
             None => result,
         }
-    }
-
-    forward_to_deserialize_any! {
-        bool i8 i16 i32 i64 i128 u8 u16 u32 u64 u128 f32 f64 char str string
-        bytes byte_buf unit unit_struct newtype_struct seq tuple
-        tuple_struct struct enum identifier ignored_any
     }
 }
 
@@ -146,16 +144,16 @@ impl<'de> de::IntoDeserializer<'de, SerdeJsonError> for Value {
 impl<'de> de::Deserializer<'de> for Value {
     type Error = SerdeJsonError;
 
+    forward_to_deserialize_any! {
+        bool i8 i16 i32 i64 i128 u8 u16 u32 u64 u128 f32 f64 char str string
+        bytes byte_buf option unit unit_struct newtype_struct seq tuple
+        tuple_struct map struct enum identifier ignored_any
+    }
+
     fn deserialize_any<V>(mut self, visitor: V) -> Result<V::Value, Self::Error>
     where
         V: de::Visitor<'de>,
     {
         self.0.deserialize_any(visitor)
-    }
-
-    forward_to_deserialize_any! {
-        bool i8 i16 i32 i64 i128 u8 u16 u32 u64 u128 f32 f64 char str string
-        bytes byte_buf option unit unit_struct newtype_struct seq tuple
-        tuple_struct map struct enum identifier ignored_any
     }
 }

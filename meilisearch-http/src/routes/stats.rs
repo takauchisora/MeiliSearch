@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 
+use actix_web::get;
 use actix_web::web;
 use actix_web::HttpResponse;
-use actix_web::get;
 use chrono::{DateTime, Utc};
 use log::error;
 use serde::Serialize;
@@ -14,9 +14,7 @@ use crate::routes::IndexParam;
 use crate::Data;
 
 pub fn services(cfg: &mut web::ServiceConfig) {
-    cfg.service(index_stats)
-        .service(get_stats)
-        .service(get_version);
+    cfg.service(index_stats).service(get_stats).service(get_version);
 }
 
 #[derive(Serialize)]
@@ -28,10 +26,7 @@ struct IndexStatsResponse {
 }
 
 #[get("/indexes/{index_uid}/stats", wrap = "Authentication::Private")]
-async fn index_stats(
-    data: web::Data<Data>,
-    path: web::Path<IndexParam>,
-) -> Result<HttpResponse, ResponseError> {
+async fn index_stats(data: web::Data<Data>, path: web::Path<IndexParam>) -> Result<HttpResponse, ResponseError> {
     let index = data
         .db
         .open_index(&path.index_uid)
@@ -45,11 +40,10 @@ async fn index_stats(
 
     let update_reader = data.db.update_read_txn()?;
 
-    let is_indexing =
-        data.db.is_indexing(&update_reader, &path.index_uid)?
-            .ok_or(Error::internal(
-                "Impossible to know if the database is indexing",
-            ))?;
+    let is_indexing = data
+        .db
+        .is_indexing(&update_reader, &path.index_uid)?
+        .ok_or(Error::internal("Impossible to know if the database is indexing"))?;
 
     Ok(HttpResponse::Ok().json(IndexStatsResponse {
         number_of_documents,
@@ -82,9 +76,10 @@ async fn get_stats(data: web::Data<Data>) -> Result<HttpResponse, ResponseError>
 
                 let fields_distribution = index.main.fields_distribution(&reader)?.unwrap_or_default();
 
-                let is_indexing = data.db.is_indexing(&update_reader, &index_uid)?.ok_or(
-                    Error::internal("Impossible to know if the database is indexing"),
-                )?;
+                let is_indexing = data
+                    .db
+                    .is_indexing(&update_reader, &index_uid)?
+                    .ok_or(Error::internal("Impossible to know if the database is indexing"))?;
 
                 let response = IndexStatsResponse {
                     number_of_documents,
@@ -93,10 +88,7 @@ async fn get_stats(data: web::Data<Data>) -> Result<HttpResponse, ResponseError>
                 };
                 index_list.insert(index_uid, response);
             }
-            None => error!(
-                "Index {:?} is referenced in the indexes list but cannot be found",
-                index_uid
-            ),
+            None => error!("Index {:?} is referenced in the indexes list but cannot be found", index_uid),
         }
     }
 

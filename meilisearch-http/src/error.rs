@@ -7,7 +7,7 @@ use actix_web::error::{JsonPayloadError, QueryPayloadError};
 use actix_web::http::StatusCode;
 use serde_json::json;
 
-use meilisearch_error::{ErrorCode, Code};
+use meilisearch_error::{Code, ErrorCode};
 
 #[derive(Debug)]
 pub struct ResponseError {
@@ -84,7 +84,10 @@ impl ErrorCode for Error {
 pub enum FacetCountError {
     AttributeNotSet(String),
     SyntaxError(String),
-    UnexpectedToken { found: String, expected: &'static [&'static str] },
+    UnexpectedToken {
+        found: String,
+        expected: &'static [&'static str],
+    },
     NoFacetSet,
 }
 
@@ -189,13 +192,18 @@ impl fmt::Display for Error {
             Self::DocumentNotFound(document_id) => write!(f, "Document with id {} not found", document_id),
             Self::IndexNotFound(index_uid) => write!(f, "Index {} not found", index_uid),
             Self::Internal(err) => f.write_str(err),
-            Self::InvalidIndexUid => f.write_str("Index must have a valid uid; Index uid can be of type integer or string only composed of alphanumeric characters, hyphens (-) and underscores (_)."),
+            Self::InvalidIndexUid => f.write_str(
+                "Index must have a valid uid; Index uid can be of type integer or string only composed of \
+                 alphanumeric characters, hyphens (-) and underscores (_).",
+            ),
             Self::InvalidToken(err) => write!(f, "Invalid API key: {}", err),
             Self::Maintenance => f.write_str("Server is in maintenance, please try again later"),
             Self::MissingAuthorizationHeader => f.write_str("You must have an authorization token"),
             Self::NotFound(err) => write!(f, "{} not found", err),
             Self::OpenIndex(err) => write!(f, "Impossible to open index; {}", err),
-            Self::RetrieveDocument(id, err) => write!(f, "Impossible to retrieve the document with id: {}; {}", id, err),
+            Self::RetrieveDocument(id, err) => {
+                write!(f, "Impossible to retrieve the document with id: {}; {}", id, err)
+            }
             Self::SearchDocuments(err) => write!(f, "Impossible to search documents; {}", err),
             Self::PayloadTooLarge => f.write_str("Payload too large"),
             Self::UnsupportedMediaType => f.write_str("Unsupported media type"),

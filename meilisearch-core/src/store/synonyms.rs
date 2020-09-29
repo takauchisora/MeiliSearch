@@ -1,7 +1,7 @@
 use std::borrow::Cow;
 
-use heed::Result as ZResult;
 use heed::types::ByteSlice;
+use heed::Result as ZResult;
 
 use crate::database::MainT;
 use crate::{FstSetCow, MResult};
@@ -13,7 +13,8 @@ pub struct Synonyms {
 
 impl Synonyms {
     pub fn put_synonyms<A>(self, writer: &mut heed::RwTxn<MainT>, word: &[u8], synonyms: &fst::Set<A>) -> ZResult<()>
-    where A: AsRef<[u8]>,
+    where
+        A: AsRef<[u8]>,
     {
         let bytes = synonyms.as_fst().as_bytes();
         self.synonyms.put(writer, word, bytes)
@@ -35,10 +36,7 @@ impl Synonyms {
     }
 
     pub fn synonyms(self, reader: &heed::RoTxn<MainT>, word: &[u8]) -> MResult<Vec<String>> {
-        let synonyms = self
-            .synonyms_fst(&reader, word)?
-            .stream()
-            .into_strs()?;
+        let synonyms = self.synonyms_fst(&reader, word)?.stream().into_strs()?;
         Ok(synonyms)
     }
 }

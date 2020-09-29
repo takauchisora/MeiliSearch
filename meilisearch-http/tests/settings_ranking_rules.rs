@@ -36,14 +36,7 @@ async fn write_all_and_delete() {
 
     let (response, _status_code) = server.get_ranking_rules().await;
 
-    let expected = json!([
-        "typo",
-        "words",
-        "proximity",
-        "attribute",
-        "wordsPosition",
-        "exactness"
-    ]);
+    let expected = json!(["typo", "words", "proximity", "attribute", "wordsPosition", "exactness"]);
 
     assert_json_eq!(expected, response, ordered: false);
 }

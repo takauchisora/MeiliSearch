@@ -5,10 +5,10 @@ use std::time::Instant;
 
 use indexmap::IndexMap;
 use log::error;
-use meilisearch_core::{Filter, MainReader};
-use meilisearch_core::facets::FacetFilter;
 use meilisearch_core::criterion::*;
+use meilisearch_core::facets::FacetFilter;
 use meilisearch_core::settings::RankingRule;
+use meilisearch_core::{Filter, MainReader};
 use meilisearch_core::{Highlight, Index, RankedMap};
 use meilisearch_schema::{FieldId, Schema};
 use meilisearch_tokenizer::is_cjk;
@@ -52,7 +52,7 @@ pub struct SearchBuilder<'a> {
     filters: Option<String>,
     matches: bool,
     facet_filters: Option<FacetFilter>,
-    facets: Option<Vec<(FieldId, String)>>
+    facets: Option<Vec<(FieldId, String)>>,
 }
 
 impl<'a> SearchBuilder<'a> {
@@ -108,11 +108,7 @@ impl<'a> SearchBuilder<'a> {
     }
 
     pub fn search(self, reader: &MainReader) -> Result<SearchResult, ResponseError> {
-        let schema = self
-            .index
-            .main
-            .schema(reader)?
-            .ok_or(Error::internal("missing schema"))?;
+        let schema = self.index.main.schema(reader)?.ok_or(Error::internal("missing schema"))?;
 
         let ranked_map = self.index.main.ranked_map(reader)?.unwrap_or_default();
 
@@ -176,7 +172,7 @@ impl<'a> SearchBuilder<'a> {
                 }
 
                 all_attributes.extend(&all_formatted);
-            },
+            }
             None => {
                 all_attributes.extend(schema.displayed_name());
                 // If we specified at least one attribute to highlight or crop then
@@ -184,7 +180,7 @@ impl<'a> SearchBuilder<'a> {
                 if self.attributes_to_highlight.is_some() || self.attributes_to_crop.is_some() {
                     all_formatted.extend(all_attributes.iter().cloned());
                 }
-            },
+            }
         }
 
         let mut hits = Vec::with_capacity(self.limit);
@@ -193,11 +189,10 @@ impl<'a> SearchBuilder<'a> {
                 .index
                 .document(reader, Some(&all_attributes), doc.id)
                 .map_err(|e| Error::retrieve_document(doc.id.0, e))?
-                .ok_or(Error::internal(
-                    "Impossible to retrieve the document; Corrupted data",
-                ))?;
+                .ok_or(Error::internal("Impossible to retrieve the document; Corrupted data"))?;
 
-            let mut formatted = document.iter()
+            let mut formatted = document
+                .iter()
                 .filter(|(key, _)| all_formatted.contains(key.as_str()))
                 .map(|(k, v)| (k.clone(), v.clone()))
                 .collect();
@@ -211,11 +206,7 @@ impl<'a> SearchBuilder<'a> {
 
             // Transform to readable matches
             if let Some(attributes_to_highlight) = &self.attributes_to_highlight {
-                let matches = calculate_matches(
-                    &matches,
-                    self.attributes_to_highlight.clone(),
-                    &schema,
-                );
+                let matches = calculate_matches(&matches, self.attributes_to_highlight.clone(), &schema);
                 formatted = calculate_highlights(&formatted, &matches, attributes_to_highlight);
             }
 
@@ -271,18 +262,14 @@ impl<'a> SearchBuilder<'a> {
                     RankingRule::Attribute => builder.push(Attribute),
                     RankingRule::WordsPosition => builder.push(WordsPosition),
                     RankingRule::Exactness => builder.push(Exactness),
-                    RankingRule::Asc(field) => {
-                        match SortByAttr::lower_is_better(&ranked_map, &schema, &field) {
-                            Ok(rule) => builder.push(rule),
-                            Err(err) => error!("Error during criteria builder; {:?}", err),
-                        }
-                    }
-                    RankingRule::Desc(field) => {
-                        match SortByAttr::higher_is_better(&ranked_map, &schema, &field) {
-                            Ok(rule) => builder.push(rule),
-                            Err(err) => error!("Error during criteria builder; {:?}", err),
-                        }
-                    }
+                    RankingRule::Asc(field) => match SortByAttr::lower_is_better(&ranked_map, &schema, &field) {
+                        Ok(rule) => builder.push(rule),
+                        Err(err) => error!("Error during criteria builder; {:?}", err),
+                    },
+                    RankingRule::Desc(field) => match SortByAttr::higher_is_better(&ranked_map, &schema, &field) {
+                        Ok(rule) => builder.push(rule),
+                        Err(err) => error!("Error during criteria builder; {:?}", err),
+                    },
                 }
             }
             builder.push(DocumentId);
@@ -366,24 +353,14 @@ fn aligned_crop(text: &str, match_index: usize, context: usize) -> (usize, usize
     (start, end - start)
 }
 
-fn crop_text(
-    text: &str,
-    matches: impl IntoIterator<Item = Highlight>,
-    context: usize,
-) -> (String, Vec<Highlight>) {
+fn crop_text(text: &str, matches: impl IntoIterator<Item = Highlight>, context: usize) -> (String, Vec<Highlight>) {
     let mut matches = matches.into_iter().peekable();
 
     let char_index = matches.peek().map(|m| m.char_index as usize).unwrap_or(0);
     let (start, count) = aligned_crop(text, char_index, context);
 
     // TODO do something about double allocation
-    let text = text
-        .chars()
-        .skip(start)
-        .take(count)
-        .collect::<String>()
-        .trim()
-        .to_string();
+    let text = text.chars().skip(start).take(count).collect::<String>().trim().to_string();
 
     // update matches index to match the new cropped text
     let matches = matches
@@ -411,14 +388,10 @@ fn crop_document(
             None => continue,
         };
 
-        let selected_matches = matches
-            .iter()
-            .filter(|m| FieldId::new(m.attribute) == attribute)
-            .cloned();
+        let selected_matches = matches.iter().filter(|m| FieldId::new(m.attribute) == attribute).cloned();
 
         if let Some(Value::String(ref mut original_text)) = document.get_mut(field) {
-            let (cropped_text, cropped_matches) =
-                crop_text(original_text, selected_matches, *length);
+            let (cropped_text, cropped_matches) = crop_text(original_text, selected_matches, *length);
 
             *original_text = cropped_text;
 
@@ -516,16 +489,16 @@ mod tests {
 
         // simple test
         let (start, length) = aligned_crop(&text, 6, 2);
-        let cropped =  text.chars().skip(start).take(length).collect::<String>().trim().to_string();
+        let cropped = text.chars().skip(start).take(length).collect::<String>().trim().to_string();
         assert_eq!("début", cropped);
 
         // first word test
         let (start, length) = aligned_crop(&text, 0, 1);
-        let cropped =  text.chars().skip(start).take(length).collect::<String>().trim().to_string();
+        let cropped = text.chars().skip(start).take(length).collect::<String>().trim().to_string();
         assert_eq!("En", cropped);
         // last word test
         let (start, length) = aligned_crop(&text, 510, 2);
-        let cropped =  text.chars().skip(start).take(length).collect::<String>().trim().to_string();
+        let cropped = text.chars().skip(start).take(length).collect::<String>().trim().to_string();
         assert_eq!("Fondation", cropped);
 
         // CJK tests
@@ -533,20 +506,28 @@ mod tests {
 
         // mixed charset
         let (start, length) = aligned_crop(&text, 5, 3);
-        let cropped =  text.chars().skip(start).take(length).collect::<String>().trim().to_string();
+        let cropped = text.chars().skip(start).take(length).collect::<String>().trim().to_string();
         assert_eq!("isの", cropped);
 
         // split regular word / CJK word, no space
         let (start, length) = aligned_crop(&text, 7, 1);
-        let cropped =  text.chars().skip(start).take(length).collect::<String>().trim().to_string();
+        let cropped = text.chars().skip(start).take(length).collect::<String>().trim().to_string();
         assert_eq!("の", cropped);
     }
 
     #[test]
     fn calculate_matches() {
         let mut matches = Vec::new();
-        matches.push(Highlight { attribute: 0, char_index: 0, char_length: 3});
-        matches.push(Highlight { attribute: 0, char_index: 0, char_length: 2});
+        matches.push(Highlight {
+            attribute: 0,
+            char_index: 0,
+            char_length: 3,
+        });
+        matches.push(Highlight {
+            attribute: 0,
+            char_index: 0,
+            char_length: 2,
+        });
 
         let mut attributes_to_retrieve: HashSet<String> = HashSet::new();
         attributes_to_retrieve.insert("title".to_string());
@@ -558,14 +539,8 @@ mod tests {
         let mut matches_result_expected: HashMap<String, Vec<MatchPosition>> = HashMap::new();
 
         let mut positions = Vec::new();
-        positions.push(MatchPosition {
-            start: 0,
-            length: 2,
-        });
-        positions.push(MatchPosition {
-            start: 0,
-            length: 3,
-        });
+        positions.push(MatchPosition { start: 0, length: 2 });
+        positions.push(MatchPosition { start: 0, length: 3 });
         matches_result_expected.insert("title".to_string(), positions);
 
         assert_eq!(matches_result, matches_result_expected);
@@ -586,26 +561,28 @@ mod tests {
         let mut matches = HashMap::new();
 
         let mut m = Vec::new();
-        m.push(MatchPosition {
-            start: 0,
-            length: 9,
-        });
+        m.push(MatchPosition { start: 0, length: 9 });
         matches.insert("title".to_string(), m);
 
         let mut m = Vec::new();
-        m.push(MatchPosition {
-            start: 510,
-            length: 9,
-        });
+        m.push(MatchPosition { start: 510, length: 9 });
         matches.insert("description".to_string(), m);
         let result = super::calculate_highlights(&document, &matches, &attributes_to_highlight);
 
         let mut result_expected = IndexMap::new();
+        result_expected.insert("title".to_string(), Value::String("<em>Fondation</em> (Isaac ASIMOV)".to_string()));
         result_expected.insert(
-            "title".to_string(),
-            Value::String("<em>Fondation</em> (Isaac ASIMOV)".to_string()),
+            "description".to_string(),
+            Value::String(
+                "En ce début de trentième millénaire, l'Empire n'a jamais été aussi puissant, aussi étendu à travers \
+                 toute la galaxie. C'est dans sa capitale, Trantor, que l'éminent savant Hari Seldon invente la \
+                 psychohistoire, une science toute nouvelle, à base de psychologie et de mathématiques, qui lui \
+                 permet de prédire l'avenir... C'est-à-dire l'effondrement de l'Empire d'ici cinq siècles et au-delà, \
+                 trente mille années de chaos et de ténèbres. Pour empêcher cette catastrophe et sauver la \
+                 civilisation, Seldon crée la <em>Fondation</em>."
+                    .to_string(),
+            ),
         );
-        result_expected.insert("description".to_string(), Value::String("En ce début de trentième millénaire, l'Empire n'a jamais été aussi puissant, aussi étendu à travers toute la galaxie. C'est dans sa capitale, Trantor, que l'éminent savant Hari Seldon invente la psychohistoire, une science toute nouvelle, à base de psychologie et de mathématiques, qui lui permet de prédire l'avenir... C'est-à-dire l'effondrement de l'Empire d'ici cinq siècles et au-delà, trente mille années de chaos et de ténèbres. Pour empêcher cette catastrophe et sauver la civilisation, Seldon crée la <em>Fondation</em>.".to_string()));
 
         assert_eq!(result, result_expected);
     }
@@ -623,23 +600,14 @@ mod tests {
         let mut matches = HashMap::new();
 
         let mut m = Vec::new();
-        m.push(MatchPosition {
-            start: 0,
-            length: 2,
-        });
-        m.push(MatchPosition {
-            start: 0,
-            length: 3,
-        });
+        m.push(MatchPosition { start: 0, length: 2 });
+        m.push(MatchPosition { start: 0, length: 3 });
         matches.insert("title".to_string(), m);
 
         let result = super::calculate_highlights(&document, &matches, &attributes_to_highlight);
 
         let mut result_expected = IndexMap::new();
-        result_expected.insert(
-            "title".to_string(),
-            Value::String("<em>Ice</em>".to_string()),
-        );
+        result_expected.insert("title".to_string(), Value::String("<em>Ice</em>".to_string()));
 
         assert_eq!(result, result_expected);
     }

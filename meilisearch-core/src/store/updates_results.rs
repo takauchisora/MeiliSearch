@@ -10,10 +10,7 @@ pub struct UpdatesResults {
 }
 
 impl UpdatesResults {
-    pub fn last_update(
-        self,
-        reader: &heed::RoTxn<UpdateT>,
-    ) -> ZResult<Option<(u64, ProcessedUpdateResult)>> {
+    pub fn last_update(self, reader: &heed::RoTxn<UpdateT>) -> ZResult<Option<(u64, ProcessedUpdateResult)>> {
         match self.updates_results.last(reader)? {
             Some((key, data)) => Ok(Some((key.get(), data))),
             None => Ok(None),

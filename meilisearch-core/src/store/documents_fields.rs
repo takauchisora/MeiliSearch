@@ -1,5 +1,5 @@
-use heed::types::{ByteSlice, OwnedType};
 use crate::database::MainT;
+use heed::types::{ByteSlice, OwnedType};
 use heed::Result as ZResult;
 use meilisearch_schema::FieldId;
 
@@ -23,11 +23,7 @@ impl DocumentsFields {
         self.documents_fields.put(writer, &key, value)
     }
 
-    pub fn del_all_document_fields(
-        self,
-        writer: &mut heed::RwTxn<MainT>,
-        document_id: DocumentId,
-    ) -> ZResult<usize> {
+    pub fn del_all_document_fields(self, writer: &mut heed::RwTxn<MainT>, document_id: DocumentId) -> ZResult<usize> {
         let start = DocumentFieldStoredKey::new(document_id, FieldId::min());
         let end = DocumentFieldStoredKey::new(document_id, FieldId::max());
         self.documents_fields.delete_range(writer, &(start..=end))

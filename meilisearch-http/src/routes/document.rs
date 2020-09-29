@@ -1,16 +1,16 @@
 use std::collections::{BTreeSet, HashSet};
 
-use actix_web::{web, HttpResponse};
 use actix_web::{delete, get, post, put};
+use actix_web::{web, HttpResponse};
 use indexmap::IndexMap;
 use meilisearch_core::update;
 use serde::Deserialize;
 use serde_json::Value;
 
-use crate::Data;
 use crate::error::{Error, ResponseError};
 use crate::helpers::Authentication;
 use crate::routes::{IndexParam, IndexUpdateResponse};
+use crate::Data;
 
 type Document = IndexMap<String, Value>;
 
@@ -30,14 +30,8 @@ pub fn services(cfg: &mut web::ServiceConfig) {
         .service(clear_all_documents);
 }
 
-#[get(
-    "/indexes/{index_uid}/documents/{document_id}",
-    wrap = "Authentication::Public"
-)]
-async fn get_document(
-    data: web::Data<Data>,
-    path: web::Path<DocumentParam>,
-) -> Result<HttpResponse, ResponseError> {
+#[get("/indexes/{index_uid}/documents/{document_id}", wrap = "Authentication::Public")]
+async fn get_document(data: web::Data<Data>, path: web::Path<DocumentParam>) -> Result<HttpResponse, ResponseError> {
     let index = data
         .db
         .open_index(&path.index_uid)
@@ -45,7 +39,8 @@ async fn get_document(
 
     let reader = data.db.main_read_txn()?;
 
-    let internal_id = index.main
+    let internal_id = index
+        .main
         .external_to_internal_docid(&reader, &path.document_id)?
         .ok_or(Error::document_not_found(&path.document_id))?;
 
@@ -56,14 +51,8 @@ async fn get_document(
     Ok(HttpResponse::Ok().json(document))
 }
 
-#[delete(
-    "/indexes/{index_uid}/documents/{document_id}",
-    wrap = "Authentication::Private"
-)]
-async fn delete_document(
-    data: web::Data<Data>,
-    path: web::Path<DocumentParam>,
-) -> Result<HttpResponse, ResponseError> {
+#[delete("/indexes/{index_uid}/documents/{document_id}", wrap = "Authentication::Private")]
+async fn delete_document(data: web::Data<Data>, path: web::Path<DocumentParam>) -> Result<HttpResponse, ResponseError> {
     let index = data
         .db
         .open_index(&path.index_uid)
@@ -107,16 +96,11 @@ async fn get_all_documents(
         .take(limit)
         .collect();
 
-    let attributes: Option<HashSet<&str>> = params
-        .attributes_to_retrieve
-        .as_ref()
-        .map(|a| a.split(',').collect());
+    let attributes: Option<HashSet<&str>> = params.attributes_to_retrieve.as_ref().map(|a| a.split(',').collect());
 
     let mut documents = Vec::new();
     for document_id in documents_ids? {
-        if let Ok(Some(document)) =
-            index.document::<Document>(&reader, attributes.as_ref(), document_id)
-        {
+        if let Ok(Some(document)) = index.document::<Document>(&reader, attributes.as_ref(), document_id) {
             documents.push(document);
         }
     }
@@ -153,10 +137,7 @@ async fn update_multiple_documents(
 
     let reader = data.db.main_read_txn()?;
 
-    let mut schema = index
-        .main
-        .schema(&reader)?
-        .ok_or(meilisearch_core::Error::SchemaMissing)?;
+    let mut schema = index.main.schema(&reader)?.ok_or(meilisearch_core::Error::SchemaMissing)?;
 
     if schema.primary_key().is_none() {
         let id = match &params.primary_key {
@@ -164,12 +145,10 @@ async fn update_multiple_documents(
             None => body
                 .first()
                 .and_then(find_primary_key)
-                .ok_or(meilisearch_core::Error::MissingPrimaryKey)?
+                .ok_or(meilisearch_core::Error::MissingPrimaryKey)?,
         };
 
-        schema
-            .set_primary_key(&id)
-            .map_err(Error::bad_request)?;
+        schema.set_primary_key(&id).map_err(Error::bad_request)?;
 
         data.db.main_write(|w| index.main.put_schema(w, &schema))?;
     }
@@ -209,10 +188,7 @@ async fn update_documents(
     update_multiple_documents(data, path, params, body, true).await
 }
 
-#[post(
-    "/indexes/{index_uid}/documents/delete-batch",
-    wrap = "Authentication::Private"
-)]
+#[post("/indexes/{index_uid}/documents/delete-batch", wrap = "Authentication::Private")]
 async fn delete_documents(
     data: web::Data<Data>,
     path: web::Path<IndexParam>,

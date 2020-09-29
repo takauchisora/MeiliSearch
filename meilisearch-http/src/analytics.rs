@@ -1,6 +1,6 @@
 use std::hash::{Hash, Hasher};
-use std::{error, thread};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+use std::{error, thread};
 
 use log::error;
 use serde::Serialize;
@@ -16,7 +16,7 @@ const AMPLITUDE_API_KEY: &str = "f7fba398780e06d8fe6666a9be7e3d47";
 #[derive(Debug, Serialize)]
 struct EventProperties {
     database_size: u64,
-    last_update_timestamp: Option<i64>, //timestamp
+    last_update_timestamp: Option<i64>, // timestamp
     number_of_documents: Vec<u64>,
 }
 
@@ -116,7 +116,7 @@ pub fn analytics_sender(data: Data, opt: Opt) {
             time,
             app_version,
             user_properties,
-            event_properties
+            event_properties,
         };
         let event = serde_json::to_string(&event).unwrap();
 

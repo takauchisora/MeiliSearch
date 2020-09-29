@@ -8,9 +8,11 @@ extern crate pest_derive;
 
 mod automaton;
 mod bucket_sort;
+pub mod criterion;
 mod database;
 mod distinct_map;
 mod error;
+pub mod facets;
 mod filters;
 mod levenshtein;
 mod number;
@@ -19,25 +21,25 @@ mod query_tree;
 mod query_words_mapper;
 mod ranked_map;
 mod raw_document;
-mod reordered_attrs;
-pub mod criterion;
-pub mod facets;
 pub mod raw_indexer;
+mod reordered_attrs;
 pub mod serde;
 pub mod settings;
 pub mod store;
 pub mod update;
 
-pub use self::database::{BoxUpdateFn, Database, DatabaseOptions, MainT, UpdateT, MainWriter, MainReader, UpdateWriter, UpdateReader};
-pub use self::error::{Error, HeedError, FstError, MResult, pest_error, FacetError};
+pub use self::database::{
+    BoxUpdateFn, Database, DatabaseOptions, MainReader, MainT, MainWriter, UpdateReader, UpdateT, UpdateWriter,
+};
+pub use self::error::{pest_error, Error, FacetError, FstError, HeedError, MResult};
 pub use self::filters::Filter;
 pub use self::number::{Number, ParseNumberError};
 pub use self::ranked_map::RankedMap;
 pub use self::raw_document::RawDocument;
 pub use self::store::Index;
 pub use self::update::{EnqueuedUpdateResult, ProcessedUpdateResult, UpdateStatus, UpdateType};
-pub use meilisearch_types::{DocIndex, DocumentId, Highlight};
 pub use meilisearch_schema::Schema;
+pub use meilisearch_types::{DocIndex, DocumentId, Highlight};
 pub use query_words_mapper::QueryWordsMapper;
 
 use compact_arena::SmallArena;
@@ -69,8 +71,7 @@ fn highlights_from_raw_document<'a, 'tag, 'txn>(
     arena: &SmallArena<'tag, PostingsListView<'txn>>,
     searchable_attrs: Option<&ReorderedAttrs>,
     schema: &Schema,
-) -> Vec<Highlight>
-{
+) -> Vec<Highlight> {
     let mut highlights = Vec::new();
 
     for bm in raw_document.bare_matches.iter() {
@@ -87,20 +88,18 @@ fn highlights_from_raw_document<'a, 'tag, 'txn>(
                         prefix_damerau_levenshtein(query.as_bytes(), input).1
                     };
                     u16::try_from(len).unwrap_or(u16::max_value())
-                },
+                }
                 _ => di.char_length,
             };
 
-            let attribute = searchable_attrs
-                .and_then(|sa| sa.reverse(di.attribute))
-                .unwrap_or(di.attribute);
+            let attribute = searchable_attrs.and_then(|sa| sa.reverse(di.attribute)).unwrap_or(di.attribute);
 
             let attribute = match schema.indexed_pos_to_field_id(attribute) {
                 Some(field_id) => field_id.0,
                 None => {
                     error!("Cannot convert indexed_pos {} to field_id", attribute);
                     trace!("Schema is compromized; {:?}", schema);
-                    continue
+                    continue;
                 }
             };
 
@@ -120,12 +119,19 @@ fn highlights_from_raw_document<'a, 'tag, 'txn>(
 impl Document {
     #[cfg(not(test))]
     pub fn from_highlights(id: DocumentId, highlights: &[Highlight]) -> Document {
-        Document { id, highlights: highlights.to_owned() }
+        Document {
+            id,
+            highlights: highlights.to_owned(),
+        }
     }
 
     #[cfg(test)]
     pub fn from_highlights(id: DocumentId, highlights: &[Highlight]) -> Document {
-        Document { id, highlights: highlights.to_owned(), matches: Vec::new() }
+        Document {
+            id,
+            highlights: highlights.to_owned(),
+            matches: Vec::new(),
+        }
     }
 
     #[cfg(not(test))]
@@ -135,17 +141,13 @@ impl Document {
         arena: &SmallArena<'tag, PostingsListView<'txn>>,
         searchable_attrs: Option<&ReorderedAttrs>,
         schema: &Schema,
-    ) -> Document
-    {
-        let highlights = highlights_from_raw_document(
-            &raw_document,
-            queries_kinds,
-            arena,
-            searchable_attrs,
-            schema,
-        );
+    ) -> Document {
+        let highlights = highlights_from_raw_document(&raw_document, queries_kinds, arena, searchable_attrs, schema);
 
-        Document { id: raw_document.id, highlights }
+        Document {
+            id: raw_document.id,
+            highlights,
+        }
     }
 
     #[cfg(test)]
@@ -155,30 +157,21 @@ impl Document {
         arena: &SmallArena<'tag, PostingsListView<'txn>>,
         searchable_attrs: Option<&ReorderedAttrs>,
         schema: &Schema,
-    ) -> Document
-    {
+    ) -> Document {
         use crate::bucket_sort::SimpleMatch;
 
-        let highlights = highlights_from_raw_document(
-            &raw_document,
-            queries_kinds,
-            arena,
-            searchable_attrs,
-            schema,
-        );
+        let highlights = highlights_from_raw_document(&raw_document, queries_kinds, arena, searchable_attrs, schema);
 
         let mut matches = Vec::new();
         for sm in raw_document.processed_matches {
-            let attribute = searchable_attrs
-                .and_then(|sa| sa.reverse(sm.attribute))
-                .unwrap_or(sm.attribute);
+            let attribute = searchable_attrs.and_then(|sa| sa.reverse(sm.attribute)).unwrap_or(sm.attribute);
 
             let attribute = match schema.indexed_pos_to_field_id(attribute) {
                 Some(field_id) => field_id.0,
                 None => {
                     error!("Cannot convert indexed_pos {} to field_id", attribute);
                     trace!("Schema is compromized; {:?}", schema);
-                    continue
+                    continue;
                 }
             };
 
@@ -186,7 +179,11 @@ impl Document {
         }
         matches.sort_unstable();
 
-        Document { id: raw_document.id, highlights, matches }
+        Document {
+            id: raw_document.id,
+            highlights,
+            matches,
+        }
     }
 }
 

@@ -2,7 +2,8 @@ use std::cmp::min;
 use std::collections::BTreeMap;
 use std::ops::{Index, IndexMut};
 
-// A simple wrapper around vec so we can get contiguous but index it like it's 2D array.
+// A simple wrapper around vec so we can get contiguous but index it like it's
+// 2D array.
 struct N2Array<T> {
     y_size: usize,
     buf: Vec<T>,
@@ -36,10 +37,7 @@ impl<T> IndexMut<(usize, usize)> for N2Array<T> {
 pub fn prefix_damerau_levenshtein(source: &[u8], target: &[u8]) -> (u32, usize) {
     let (n, m) = (source.len(), target.len());
 
-    assert!(
-        n <= m,
-        "the source string must be shorter than the target one"
-    );
+    assert!(n <= m, "the source string must be shorter than the target one");
 
     if n == 0 {
         return (m as u32, 0);
@@ -79,10 +77,8 @@ pub fn prefix_damerau_levenshtein(source: &[u8], target: &[u8]) -> (u32, usize) 
             let dist_add = matrix[(row, col + 1)] + 1;
             let dist_del = matrix[(row + 1, col)] + 1;
             let dist_sub = matrix[(row, col)] + cost;
-            let dist_trans = matrix[(last_match_row, last_match_col)]
-                + (row - last_match_row - 1)
-                + 1
-                + (col - last_match_col - 1);
+            let dist_trans =
+                matrix[(last_match_row, last_match_col)] + (row - last_match_row - 1) + 1 + (col - last_match_col - 1);
 
             let dist = min(min(dist_add, dist_del), min(dist_sub, dist_trans));
 

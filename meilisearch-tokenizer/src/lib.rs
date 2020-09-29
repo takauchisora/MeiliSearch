@@ -30,11 +30,7 @@ enum SeparatorCategory {
 
 impl SeparatorCategory {
     fn merge(self, other: SeparatorCategory) -> SeparatorCategory {
-        if let (Soft, Soft) = (self, other) {
-            Soft
-        } else {
-            Hard
-        }
+        if let (Soft, Soft) = (self, other) { Soft } else { Hard }
     }
 
     fn to_usize(self) -> usize {
@@ -51,8 +47,8 @@ fn is_separator(c: char) -> bool {
 
 fn classify_separator(c: char) -> Option<SeparatorCategory> {
     match c {
-        c if c.is_whitespace() => Some(Soft), // whitespaces
-        c if deunicode_char(c) == Some("'") => Some(Soft), // quotes
+        c if c.is_whitespace() => Some(Soft),               // whitespaces
+        c if deunicode_char(c) == Some("'") => Some(Soft),  // quotes
         c if deunicode_char(c) == Some("\"") => Some(Soft), // double quotes
         '-' | '_' | '\'' | ':' | '/' | '\\' | '@' => Some(Soft),
         '.' | ';' | ',' | '!' | '?' | '(' | ')' => Some(Hard),

@@ -1,8 +1,8 @@
 mod cow_set;
 mod docs_words;
-mod documents_ids;
 mod documents_fields;
 mod documents_fields_counts;
+mod documents_ids;
 mod facets;
 mod main;
 mod postings_lists;
@@ -16,7 +16,7 @@ pub use self::cow_set::CowSet;
 pub use self::docs_words::DocsWords;
 pub use self::documents_fields::{DocumentFieldsIter, DocumentsFields};
 pub use self::documents_fields_counts::{DocumentFieldsCountsIter, DocumentsFieldsCounts, DocumentsIdsIter};
-pub use self::documents_ids::{DocumentsIds, DiscoverIds};
+pub use self::documents_ids::{DiscoverIds, DocumentsIds};
 pub use self::facets::Facets;
 pub use self::main::Main;
 pub use self::postings_lists::PostingsLists;
@@ -31,8 +31,8 @@ use std::collections::HashSet;
 use std::convert::TryInto;
 use std::{mem, ptr};
 
-use heed::{BytesEncode, BytesDecode};
-use meilisearch_schema::{IndexedPos, FieldId};
+use heed::{BytesDecode, BytesEncode};
+use meilisearch_schema::{FieldId, IndexedPos};
 use sdset::{Set, SetBuf};
 use serde::de::{self, Deserialize};
 use zerocopy::{AsBytes, FromBytes};
@@ -112,7 +112,8 @@ fn aligned_to(bytes: &[u8], align: usize) -> bool {
 }
 
 fn from_bytes_to_set<'a, T: 'a>(bytes: &'a [u8]) -> Option<Cow<'a, Set<T>>>
-where T: Clone + FromBytes
+where
+    T: Clone + FromBytes,
 {
     match zerocopy::LayoutVerified::<_, [T]>::new_slice(bytes) {
         Some(layout) => Some(Cow::Borrowed(Set::new_unchecked(layout.into_slice()))),
@@ -254,9 +255,7 @@ impl Index {
         document_id: DocumentId,
         attribute: FieldId,
     ) -> MResult<Option<T>> {
-        let bytes = self
-            .documents_fields
-            .document_attribute(reader, document_id, attribute)?;
+        let bytes = self.documents_fields.document_attribute(reader, document_id, attribute)?;
         match bytes {
             Some(bytes) => Ok(Some(serde_json::from_slice(bytes)?)),
             None => Ok(None),
@@ -269,9 +268,7 @@ impl Index {
         document_id: DocumentId,
         attribute: FieldId,
     ) -> MResult<Option<&'txn [u8]>> {
-        let bytes = self
-            .documents_fields
-            .document_attribute(reader, document_id, attribute)?;
+        let bytes = self.documents_fields.document_attribute(reader, document_id, attribute)?;
         match bytes {
             Some(bytes) => Ok(Some(bytes)),
             None => Ok(None),
@@ -289,27 +286,15 @@ impl Index {
     }
 
     pub fn documents_addition<D>(&self) -> update::DocumentsAddition<D> {
-        update::DocumentsAddition::new(
-            self.updates,
-            self.updates_results,
-            self.updates_notifier.clone(),
-        )
+        update::DocumentsAddition::new(self.updates, self.updates_results, self.updates_notifier.clone())
     }
 
     pub fn documents_partial_addition<D>(&self) -> update::DocumentsAddition<D> {
-        update::DocumentsAddition::new_partial(
-            self.updates,
-            self.updates_results,
-            self.updates_notifier.clone(),
-        )
+        update::DocumentsAddition::new_partial(self.updates, self.updates_results, self.updates_notifier.clone())
     }
 
     pub fn documents_deletion(&self) -> update::DocumentsDeletion {
-        update::DocumentsDeletion::new(
-            self.updates,
-            self.updates_results,
-            self.updates_notifier.clone(),
-        )
+        update::DocumentsDeletion::new(self.updates, self.updates_results, self.updates_notifier.clone())
     }
 
     pub fn clear_all(&self, writer: &mut heed::RwTxn<UpdateT>) -> MResult<u64> {
@@ -408,10 +393,14 @@ pub fn create(
         main: Main { main },
         postings_lists: PostingsLists { postings_lists },
         documents_fields: DocumentsFields { documents_fields },
-        documents_fields_counts: DocumentsFieldsCounts { documents_fields_counts },
+        documents_fields_counts: DocumentsFieldsCounts {
+            documents_fields_counts,
+        },
         synonyms: Synonyms { synonyms },
         docs_words: DocsWords { docs_words },
-        prefix_postings_lists_cache: PrefixPostingsListsCache { prefix_postings_lists_cache },
+        prefix_postings_lists_cache: PrefixPostingsListsCache {
+            prefix_postings_lists_cache,
+        },
         prefix_documents_cache: PrefixDocumentsCache { prefix_documents_cache },
         facets: Facets { facets },
 
@@ -490,23 +479,23 @@ pub fn open(
         main: Main { main },
         postings_lists: PostingsLists { postings_lists },
         documents_fields: DocumentsFields { documents_fields },
-        documents_fields_counts: DocumentsFieldsCounts { documents_fields_counts },
+        documents_fields_counts: DocumentsFieldsCounts {
+            documents_fields_counts,
+        },
         synonyms: Synonyms { synonyms },
         docs_words: DocsWords { docs_words },
         prefix_documents_cache: PrefixDocumentsCache { prefix_documents_cache },
         facets: Facets { facets },
-        prefix_postings_lists_cache: PrefixPostingsListsCache { prefix_postings_lists_cache },
+        prefix_postings_lists_cache: PrefixPostingsListsCache {
+            prefix_postings_lists_cache,
+        },
         updates: Updates { updates },
         updates_results: UpdatesResults { updates_results },
         updates_notifier,
     }))
 }
 
-pub fn clear(
-    writer: &mut heed::RwTxn<MainT>,
-    update_writer: &mut heed::RwTxn<UpdateT>,
-    index: &Index,
-) -> MResult<()> {
+pub fn clear(writer: &mut heed::RwTxn<MainT>, update_writer: &mut heed::RwTxn<UpdateT>, index: &Index) -> MResult<()> {
     // clear all the stores
     index.main.clear(writer)?;
     index.postings_lists.clear(writer)?;

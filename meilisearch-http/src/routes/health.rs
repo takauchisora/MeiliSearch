@@ -1,5 +1,5 @@
-use actix_web::{web, HttpResponse};
 use actix_web::{get, put};
+use actix_web::{web, HttpResponse};
 use serde::Deserialize;
 
 use crate::error::{Error, ResponseError};
@@ -35,13 +35,6 @@ struct HealthBody {
 }
 
 #[put("/health", wrap = "Authentication::Private")]
-async fn change_healthyness(
-    data: web::Data<Data>,
-    body: web::Json<HealthBody>,
-) -> Result<HttpResponse, ResponseError> {
-    if body.health {
-        set_healthy(data).await
-    } else {
-        set_unhealthy(data).await
-    }
+async fn change_healthyness(data: web::Data<Data>, body: web::Json<HealthBody>) -> Result<HttpResponse, ResponseError> {
+    if body.health { set_healthy(data).await } else { set_unhealthy(data).await }
 }

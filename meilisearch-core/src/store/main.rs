@@ -2,16 +2,16 @@ use std::borrow::Cow;
 use std::collections::HashMap;
 
 use chrono::{DateTime, Utc};
-use heed::types::{ByteSlice, OwnedType, SerdeBincode, Str, CowSlice};
+use heed::types::{ByteSlice, CowSlice, OwnedType, SerdeBincode, Str};
 use meilisearch_schema::{FieldId, Schema};
 use meilisearch_types::DocumentId;
 use sdset::Set;
 
-use crate::database::MainT;
-use crate::{RankedMap, MResult};
-use crate::settings::RankingRule;
-use crate::{FstSetCow, FstMapCow};
 use super::{CowSet, DocumentsIds};
+use crate::database::MainT;
+use crate::settings::RankingRule;
+use crate::{FstMapCow, FstSetCow};
+use crate::{MResult, RankedMap};
 
 const ATTRIBUTES_FOR_FACETING_KEY: &str = "attributes-for-faceting";
 const CREATED_AT_KEY: &str = "created-at";
@@ -50,10 +50,7 @@ impl Main {
     }
 
     pub fn name(self, reader: &heed::RoTxn<MainT>) -> MResult<Option<String>> {
-        Ok(self
-            .main
-            .get::<_, Str, Str>(reader, NAME_KEY)?
-            .map(|name| name.to_owned()))
+        Ok(self.main.get::<_, Str, Str>(reader, NAME_KEY)?.map(|name| name.to_owned()))
     }
 
     pub fn put_created_at(self, writer: &mut heed::RwTxn<MainT>) -> MResult<()> {
@@ -83,7 +80,11 @@ impl Main {
         }
     }
 
-    pub fn merge_internal_docids(self, writer: &mut heed::RwTxn<MainT>, new_ids: &sdset::Set<DocumentId>) -> MResult<()> {
+    pub fn merge_internal_docids(
+        self,
+        writer: &mut heed::RwTxn<MainT>,
+        new_ids: &sdset::Set<DocumentId>,
+    ) -> MResult<()> {
         use sdset::SetOperation;
 
         // We do an union of the old and new internal ids.
@@ -102,15 +103,19 @@ impl Main {
     }
 
     pub fn put_external_docids<A>(self, writer: &mut heed::RwTxn<MainT>, ids: &fst::Map<A>) -> MResult<()>
-    where A: AsRef<[u8]>,
+    where
+        A: AsRef<[u8]>,
     {
-        Ok(self.main.put::<_, Str, ByteSlice>(writer, EXTERNAL_DOCIDS_KEY, ids.as_fst().as_bytes())?)
+        Ok(self
+            .main
+            .put::<_, Str, ByteSlice>(writer, EXTERNAL_DOCIDS_KEY, ids.as_fst().as_bytes())?)
     }
 
     pub fn merge_external_docids<A>(self, writer: &mut heed::RwTxn<MainT>, new_docids: &fst::Map<A>) -> MResult<()>
-    where A: AsRef<[u8]>,
+    where
+        A: AsRef<[u8]>,
     {
-        use fst::{Streamer, IntoStreamer};
+        use fst::{IntoStreamer, Streamer};
 
         // Do an union of the old and the new set of external docids.
         let external_docids = self.external_docids(writer)?;
@@ -126,9 +131,10 @@ impl Main {
     }
 
     pub fn remove_external_docids<A>(self, writer: &mut heed::RwTxn<MainT>, ids: &fst::Map<A>) -> MResult<()>
-    where A: AsRef<[u8]>,
+    where
+        A: AsRef<[u8]>,
     {
-        use fst::{Streamer, IntoStreamer};
+        use fst::{IntoStreamer, Streamer};
 
         // Do an union of the old and the new set of external docids.
         let external_docids = self.external_docids(writer)?;
@@ -150,7 +156,11 @@ impl Main {
         }
     }
 
-    pub fn external_to_internal_docid(self, reader: &heed::RoTxn<MainT>, external_docid: &str) -> MResult<Option<DocumentId>> {
+    pub fn external_to_internal_docid(
+        self,
+        reader: &heed::RoTxn<MainT>,
+        external_docid: &str,
+    ) -> MResult<Option<DocumentId>> {
         let external_ids = self.external_docids(reader)?;
         Ok(external_ids.get(external_docid).map(|id| DocumentId(id as u32)))
     }
@@ -166,12 +176,20 @@ impl Main {
         Ok(self.main.put::<_, Str, ByteSlice>(writer, WORDS_KEY, fst.as_fst().as_bytes())?)
     }
 
-    pub fn put_sorted_document_ids_cache(self, writer: &mut heed::RwTxn<MainT>, documents_ids: &[DocumentId]) -> MResult<()> {
-        Ok(self.main.put::<_, Str, CowSlice<DocumentId>>(writer, SORTED_DOCUMENT_IDS_CACHE_KEY, documents_ids)?)
+    pub fn put_sorted_document_ids_cache(
+        self,
+        writer: &mut heed::RwTxn<MainT>,
+        documents_ids: &[DocumentId],
+    ) -> MResult<()> {
+        Ok(self
+            .main
+            .put::<_, Str, CowSlice<DocumentId>>(writer, SORTED_DOCUMENT_IDS_CACHE_KEY, documents_ids)?)
     }
 
     pub fn sorted_document_ids_cache(self, reader: &heed::RoTxn<MainT>) -> MResult<Option<Cow<[DocumentId]>>> {
-        Ok(self.main.get::<_, Str, CowSlice<DocumentId>>(reader, SORTED_DOCUMENT_IDS_CACHE_KEY)?)
+        Ok(self
+            .main
+            .get::<_, Str, CowSlice<DocumentId>>(reader, SORTED_DOCUMENT_IDS_CACHE_KEY)?)
     }
 
     pub fn put_schema(self, writer: &mut heed::RwTxn<MainT>, schema: &Schema) -> MResult<()> {
@@ -187,7 +205,9 @@ impl Main {
     }
 
     pub fn put_ranked_map(self, writer: &mut heed::RwTxn<MainT>, ranked_map: &RankedMap) -> MResult<()> {
-        Ok(self.main.put::<_, Str, SerdeBincode<RankedMap>>(writer, RANKED_MAP_KEY, &ranked_map)?)
+        Ok(self
+            .main
+            .put::<_, Str, SerdeBincode<RankedMap>>(writer, RANKED_MAP_KEY, &ranked_map)?)
     }
 
     pub fn ranked_map(self, reader: &heed::RoTxn<MainT>) -> MResult<Option<RankedMap>> {
@@ -207,10 +227,7 @@ impl Main {
     }
 
     pub fn synonyms(self, reader: &heed::RoTxn<MainT>) -> MResult<Vec<String>> {
-        let synonyms = self
-            .synonyms_fst(&reader)?
-            .stream()
-            .into_strs()?;
+        let synonyms = self.synonyms_fst(&reader)?.stream().into_strs()?;
         Ok(synonyms)
     }
 
@@ -227,10 +244,7 @@ impl Main {
     }
 
     pub fn stop_words(self, reader: &heed::RoTxn<MainT>) -> MResult<Vec<String>> {
-        let stop_word_list = self
-            .stop_words_fst(reader)?
-            .stream()
-            .into_strs()?;
+        let stop_word_list = self.stop_words_fst(reader)?.stream().into_strs()?;
         Ok(stop_word_list)
     }
 
@@ -239,44 +253,45 @@ impl Main {
         F: Fn(u64) -> u64,
     {
         let new = self.number_of_documents(&*writer).map(f)?;
-        self.main
-            .put::<_, Str, OwnedType<u64>>(writer, NUMBER_OF_DOCUMENTS_KEY, &new)?;
+        self.main.put::<_, Str, OwnedType<u64>>(writer, NUMBER_OF_DOCUMENTS_KEY, &new)?;
         Ok(new)
     }
 
     pub fn number_of_documents(self, reader: &heed::RoTxn<MainT>) -> MResult<u64> {
-        match self
-            .main
-            .get::<_, Str, OwnedType<u64>>(reader, NUMBER_OF_DOCUMENTS_KEY)? {
+        match self.main.get::<_, Str, OwnedType<u64>>(reader, NUMBER_OF_DOCUMENTS_KEY)? {
             Some(value) => Ok(value),
             None => Ok(0),
         }
     }
 
-    pub fn put_fields_distribution(
-        self,
-        writer: &mut heed::RwTxn<MainT>,
-        fields_frequency: &FreqsMap,
-    ) -> MResult<()> {
-        Ok(self.main.put::<_, Str, SerdeFreqsMap>(writer, FIELDS_DISTRIBUTION_KEY, fields_frequency)?)
+    pub fn put_fields_distribution(self, writer: &mut heed::RwTxn<MainT>, fields_frequency: &FreqsMap) -> MResult<()> {
+        Ok(self
+            .main
+            .put::<_, Str, SerdeFreqsMap>(writer, FIELDS_DISTRIBUTION_KEY, fields_frequency)?)
     }
 
     pub fn fields_distribution(&self, reader: &heed::RoTxn<MainT>) -> MResult<Option<FreqsMap>> {
-        match self
-            .main
-            .get::<_, Str, SerdeFreqsMap>(reader, FIELDS_DISTRIBUTION_KEY)?
-        {
+        match self.main.get::<_, Str, SerdeFreqsMap>(reader, FIELDS_DISTRIBUTION_KEY)? {
             Some(freqs) => Ok(Some(freqs)),
             None => Ok(None),
         }
     }
 
-    pub fn attributes_for_faceting<'txn>(&self, reader: &'txn heed::RoTxn<MainT>) -> MResult<Option<Cow<'txn, Set<FieldId>>>> {
+    pub fn attributes_for_faceting<'txn>(
+        &self,
+        reader: &'txn heed::RoTxn<MainT>,
+    ) -> MResult<Option<Cow<'txn, Set<FieldId>>>> {
         Ok(self.main.get::<_, Str, CowSet<FieldId>>(reader, ATTRIBUTES_FOR_FACETING_KEY)?)
     }
 
-    pub fn put_attributes_for_faceting(self, writer: &mut heed::RwTxn<MainT>, attributes: &Set<FieldId>) -> MResult<()> {
-        Ok(self.main.put::<_, Str, CowSet<FieldId>>(writer, ATTRIBUTES_FOR_FACETING_KEY, attributes)?)
+    pub fn put_attributes_for_faceting(
+        self,
+        writer: &mut heed::RwTxn<MainT>,
+        attributes: &Set<FieldId>,
+    ) -> MResult<()> {
+        Ok(self
+            .main
+            .put::<_, Str, CowSet<FieldId>>(writer, ATTRIBUTES_FOR_FACETING_KEY, attributes)?)
     }
 
     pub fn delete_attributes_for_faceting(self, writer: &mut heed::RwTxn<MainT>) -> MResult<bool> {
@@ -284,11 +299,15 @@ impl Main {
     }
 
     pub fn ranking_rules(&self, reader: &heed::RoTxn<MainT>) -> MResult<Option<Vec<RankingRule>>> {
-        Ok(self.main.get::<_, Str, SerdeBincode<Vec<RankingRule>>>(reader, RANKING_RULES_KEY)?)
+        Ok(self
+            .main
+            .get::<_, Str, SerdeBincode<Vec<RankingRule>>>(reader, RANKING_RULES_KEY)?)
     }
 
     pub fn put_ranking_rules(self, writer: &mut heed::RwTxn<MainT>, value: &[RankingRule]) -> MResult<()> {
-        Ok(self.main.put::<_, Str, SerdeBincode<Vec<RankingRule>>>(writer, RANKING_RULES_KEY, &value.to_vec())?)
+        Ok(self
+            .main
+            .put::<_, Str, SerdeBincode<Vec<RankingRule>>>(writer, RANKING_RULES_KEY, &value.to_vec())?)
     }
 
     pub fn delete_ranking_rules(self, writer: &mut heed::RwTxn<MainT>) -> MResult<bool> {
@@ -303,7 +322,9 @@ impl Main {
     }
 
     pub fn put_distinct_attribute(self, writer: &mut heed::RwTxn<MainT>, value: FieldId) -> MResult<()> {
-        Ok(self.main.put::<_, Str, OwnedType<u16>>(writer, DISTINCT_ATTRIBUTE_KEY, &value.0)?)
+        Ok(self
+            .main
+            .put::<_, Str, OwnedType<u16>>(writer, DISTINCT_ATTRIBUTE_KEY, &value.0)?)
     }
 
     pub fn delete_distinct_attribute(self, writer: &mut heed::RwTxn<MainT>) -> MResult<bool> {

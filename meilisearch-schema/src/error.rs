@@ -1,6 +1,6 @@
 use std::{error, fmt};
 
-use meilisearch_error::{ErrorCode, Code};
+use meilisearch_error::{Code, ErrorCode};
 
 pub type SResult<T> = Result<T, Error>;
 

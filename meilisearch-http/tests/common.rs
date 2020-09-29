@@ -15,11 +15,12 @@ use meilisearch_http::option::Opt;
 #[macro_export]
 macro_rules! test_post_get_search {
     ($server:expr, $query:expr, |$response:ident, $status_code:ident | $block:expr) => {
-        let post_query: meilisearch_http::routes::search::SearchQueryPost = serde_json::from_str(&$query.clone().to_string()).unwrap();
+        let post_query: meilisearch_http::routes::search::SearchQueryPost =
+            serde_json::from_str(&$query.clone().to_string()).unwrap();
         let get_query: meilisearch_http::routes::search::SearchQuery = post_query.into();
         let get_query = ::serde_url_params::to_string(&get_query).unwrap();
         let ($response, $status_code) = $server.search_get(&get_query).await;
-        let _ =::std::panic::catch_unwind(|| $block)
+        let _ = ::std::panic::catch_unwind(|| $block)
             .map_err(|e| panic!("panic in get route: {:?}", e.downcast_ref::<&str>().unwrap()));
         let ($response, $status_code) = $server.search_post($query).await;
         let _ = ::std::panic::catch_unwind(|| $block)
@@ -59,7 +60,6 @@ impl Server {
     }
 
     pub async fn test_server() -> Self {
-
         let mut server = Self::with_uid("test");
 
         let body = json!({
@@ -124,7 +124,6 @@ impl Server {
         server
     }
 
-
     pub async fn wait_update_id(&mut self, update_id: u64) {
         // try 10 times to get status, or panic to not wait forever
         for _ in 0..10 {
@@ -162,10 +161,7 @@ impl Server {
 
         let mut app = test::init_service(meilisearch_http::create_app(&self.data).wrap(NormalizePath)).await;
 
-        let req = test::TestRequest::post()
-            .uri(url)
-            .set_json(&body)
-            .to_request();
+        let req = test::TestRequest::post().uri(url).set_json(&body).to_request();
         let res = test::call_service(&mut app, req).await;
         let status_code = res.status().clone();
 
@@ -181,8 +177,7 @@ impl Server {
         eprintln!("response: {}", response);
         assert_eq!(status_code, 202);
         assert!(response["updateId"].as_u64().is_some());
-        self.wait_update_id(response["updateId"].as_u64().unwrap())
-            .await;
+        self.wait_update_id(response["updateId"].as_u64().unwrap()).await;
         (response, status_code)
     }
 
@@ -191,10 +186,7 @@ impl Server {
 
         let mut app = test::init_service(meilisearch_http::create_app(&self.data).wrap(NormalizePath)).await;
 
-        let req = test::TestRequest::put()
-            .uri(url)
-            .set_json(&body)
-            .to_request();
+        let req = test::TestRequest::put().uri(url).set_json(&body).to_request();
         let res = test::call_service(&mut app, req).await;
         let status_code = res.status().clone();
 
@@ -209,8 +201,7 @@ impl Server {
         let (response, status_code) = self.put_request(url, body).await;
         assert!(response["updateId"].as_u64().is_some());
         assert_eq!(status_code, 202);
-        self.wait_update_id(response["updateId"].as_u64().unwrap())
-            .await;
+        self.wait_update_id(response["updateId"].as_u64().unwrap()).await;
         (response, status_code)
     }
 
@@ -234,8 +225,7 @@ impl Server {
         let (response, status_code) = self.delete_request(url).await;
         assert!(response["updateId"].as_u64().is_some());
         assert_eq!(status_code, 202);
-        self.wait_update_id(response["updateId"].as_u64().unwrap())
-            .await;
+        self.wait_update_id(response["updateId"].as_u64().unwrap()).await;
         (response, status_code)
     }
 
@@ -299,10 +289,7 @@ impl Server {
         self.post_request_async(&url, body).await;
     }
 
-    pub async fn add_or_replace_multiple_documents_sync(
-        &mut self,
-        body: Value,
-    ) -> (Value, StatusCode) {
+    pub async fn add_or_replace_multiple_documents_sync(&mut self, body: Value) -> (Value, StatusCode) {
         let url = format!("/indexes/{}/documents", self.uid);
         self.post_request(&url, body).await
     }
@@ -318,20 +305,12 @@ impl Server {
     }
 
     pub async fn get_document(&mut self, document_id: impl ToString) -> (Value, StatusCode) {
-        let url = format!(
-            "/indexes/{}/documents/{}",
-            self.uid,
-            document_id.to_string()
-        );
+        let url = format!("/indexes/{}/documents/{}", self.uid, document_id.to_string());
         self.get_request(&url).await
     }
 
     pub async fn delete_document(&mut self, document_id: impl ToString) -> (Value, StatusCode) {
-        let url = format!(
-            "/indexes/{}/documents/{}",
-            self.uid,
-            document_id.to_string()
-        );
+        let url = format!("/indexes/{}/documents/{}", self.uid, document_id.to_string());
         self.delete_request_async(&url).await
     }
 

@@ -1,15 +1,15 @@
 use std::collections::{BTreeMap, BTreeSet};
 
-use heed::Result as ZResult;
 use fst::{set::OpBuilder, SetBuilder};
-use sdset::SetBuf;
+use heed::Result as ZResult;
 use meilisearch_schema::Schema;
+use sdset::SetBuf;
 
 use crate::database::{MainT, UpdateT};
-use crate::settings::{UpdateState, SettingsUpdate, RankingRule};
+use crate::settings::{RankingRule, SettingsUpdate, UpdateState};
 use crate::update::documents_addition::reindex_all_documents;
 use crate::update::{next_update_id, Update};
-use crate::{store, MResult, Error};
+use crate::{store, Error, MResult};
 
 pub fn push_settings_update(
     writer: &mut heed::RwTxn<UpdateT>,
@@ -34,12 +34,10 @@ pub fn apply_settings_update(
 
     let mut schema = match index.main.schema(writer)? {
         Some(schema) => schema,
-        None => {
-            match settings.primary_key.clone() {
-                UpdateState::Update(id) => Schema::with_primary_key(&id),
-                _ => return Err(Error::MissingPrimaryKey)
-            }
-        }
+        None => match settings.primary_key.clone() {
+            UpdateState::Update(id) => Schema::with_primary_key(&id),
+            _ => return Err(Error::MissingPrimaryKey),
+        },
     };
 
     match settings.ranking_rules {
@@ -48,24 +46,24 @@ pub fn apply_settings_update(
             schema.update_ranked(&ranked_field)?;
             index.main.put_ranking_rules(writer, &v)?;
             must_reindex = true;
-        },
+        }
         UpdateState::Clear => {
             index.main.delete_ranking_rules(writer)?;
             schema.clear_ranked();
             must_reindex = true;
-        },
-        UpdateState::Nothing => (),
+        }
+        UpdateState::Nothing => {}
     }
 
     match settings.distinct_attribute {
         UpdateState::Update(v) => {
             let field_id = schema.insert(&v)?;
             index.main.put_distinct_attribute(writer, field_id)?;
-        },
+        }
         UpdateState::Clear => {
             index.main.delete_distinct_attribute(writer)?;
-        },
-        UpdateState::Nothing => (),
+        }
+        UpdateState::Nothing => {}
     }
 
     match settings.searchable_attributes.clone() {
@@ -76,12 +74,12 @@ pub fn apply_settings_update(
                 schema.update_indexed(v)?;
             }
             must_reindex = true;
-        },
+        }
         UpdateState::Clear => {
             schema.set_all_fields_as_indexed();
             must_reindex = true;
-        },
-        UpdateState::Nothing => (),
+        }
+        UpdateState::Nothing => {}
     }
     match settings.displayed_attributes.clone() {
         UpdateState::Update(v) => {
@@ -90,23 +88,23 @@ pub fn apply_settings_update(
             } else {
                 schema.update_displayed(v)?
             }
-        },
+        }
         UpdateState::Clear => {
             schema.set_all_fields_as_displayed();
-        },
-        UpdateState::Nothing => (),
+        }
+        UpdateState::Nothing => {}
     }
 
     match settings.attributes_for_faceting {
         UpdateState::Update(attrs) => {
             apply_attributes_for_faceting_update(writer, index, &mut schema, &attrs)?;
             must_reindex = true;
-        },
+        }
         UpdateState::Clear => {
             index.main.delete_attributes_for_faceting(writer)?;
             index.facets.clear(writer)?;
-        },
-        UpdateState::Nothing => (),
+        }
+        UpdateState::Nothing => {}
     }
 
     index.main.put_schema(writer, &schema)?;
@@ -116,19 +114,19 @@ pub fn apply_settings_update(
             if apply_stop_words_update(writer, index, stop_words)? {
                 must_reindex = true;
             }
-        },
+        }
         UpdateState::Clear => {
             if apply_stop_words_update(writer, index, BTreeSet::new())? {
                 must_reindex = true;
             }
-        },
-        UpdateState::Nothing => (),
+        }
+        UpdateState::Nothing => {}
     }
 
     match settings.synonyms {
         UpdateState::Update(synonyms) => apply_synonyms_update(writer, index, synonyms)?,
         UpdateState::Clear => apply_synonyms_update(writer, index, BTreeMap::new())?,
-        UpdateState::Nothing => (),
+        UpdateState::Nothing => {}
     }
 
     if must_reindex {
@@ -142,8 +140,8 @@ fn apply_attributes_for_faceting_update(
     writer: &mut heed::RwTxn<MainT>,
     index: &store::Index,
     schema: &mut Schema,
-    attributes: &[String]
-    ) -> MResult<()> {
+    attributes: &[String],
+) -> MResult<()> {
     let mut attribute_ids = Vec::new();
     for name in attributes {
         attribute_ids.push(schema.insert(name)?);
@@ -157,16 +155,11 @@ pub fn apply_stop_words_update(
     writer: &mut heed::RwTxn<MainT>,
     index: &store::Index,
     stop_words: BTreeSet<String>,
-) -> MResult<bool>
-{
+) -> MResult<bool> {
     let mut must_reindex = false;
 
-    let old_stop_words: BTreeSet<String> = index.main
-        .stop_words_fst(writer)?
-        .stream()
-        .into_strs()?
-        .into_iter()
-        .collect();
+    let old_stop_words: BTreeSet<String> =
+        index.main.stop_words_fst(writer)?.stream().into_strs()?.into_iter().collect();
 
     let deletion: BTreeSet<String> = old_stop_words.difference(&stop_words).cloned().collect();
     let addition: BTreeSet<String> = stop_words.difference(&old_stop_words).cloned().collect();
@@ -183,10 +176,7 @@ pub fn apply_stop_words_update(
     let words_fst = index.main.words_fst(writer)?;
     if !words_fst.is_empty() {
         let stop_words = fst::Set::from_iter(stop_words)?;
-        let op = OpBuilder::new()
-            .add(&words_fst)
-            .add(&stop_words)
-            .difference();
+        let op = OpBuilder::new().add(&words_fst).add(&stop_words).difference();
 
         let mut builder = fst::SetBuilder::memory();
         builder.extend_stream(op)?;
@@ -203,8 +193,7 @@ fn apply_stop_words_addition(
     writer: &mut heed::RwTxn<MainT>,
     index: &store::Index,
     addition: BTreeSet<String>,
-) -> MResult<()>
-{
+) -> MResult<()> {
     let main_store = index.main;
     let postings_lists_store = index.postings_lists;
 
@@ -222,10 +211,7 @@ fn apply_stop_words_addition(
     // we also need to remove all the stop words from the main fst
     let words_fst = main_store.words_fst(writer)?;
     if !words_fst.is_empty() {
-        let op = OpBuilder::new()
-            .add(&words_fst)
-            .add(&delta_stop_words)
-            .difference();
+        let op = OpBuilder::new().add(&words_fst).add(&delta_stop_words).difference();
 
         let mut word_fst_builder = SetBuilder::memory();
         word_fst_builder.extend_stream(op)?;
@@ -237,10 +223,7 @@ fn apply_stop_words_addition(
     // now we add all of these stop words from the main store
     let stop_words_fst = main_store.stop_words_fst(writer)?;
 
-    let op = OpBuilder::new()
-        .add(&stop_words_fst)
-        .add(&delta_stop_words)
-        .r#union();
+    let op = OpBuilder::new().add(&stop_words_fst).add(&delta_stop_words).r#union();
 
     let mut stop_words_builder = SetBuilder::memory();
     stop_words_builder.extend_stream(op)?;
@@ -256,7 +239,6 @@ fn apply_stop_words_deletion(
     index: &store::Index,
     deletion: BTreeSet<String>,
 ) -> MResult<()> {
-
     let mut stop_words_builder = SetBuilder::memory();
 
     for word in deletion {
@@ -269,10 +251,7 @@ fn apply_stop_words_deletion(
     // now we delete all of these stop words from the main store
     let stop_words_fst = index.main.stop_words_fst(writer)?;
 
-    let op = OpBuilder::new()
-        .add(&stop_words_fst)
-        .add(&delta_stop_words)
-        .difference();
+    let op = OpBuilder::new().add(&stop_words_fst).add(&delta_stop_words).difference();
 
     let mut stop_words_builder = SetBuilder::memory();
     stop_words_builder.extend_stream(op)?;
@@ -286,7 +265,6 @@ pub fn apply_synonyms_update(
     index: &store::Index,
     synonyms: BTreeMap<String, Vec<String>>,
 ) -> MResult<()> {
-
     let main_store = index.main;
     let synonyms_store = index.synonyms;
 

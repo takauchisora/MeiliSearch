@@ -63,7 +63,7 @@ impl PartialOrd for Number {
 
 impl Ord for Number {
     fn cmp(&self, other: &Self) -> Ordering {
-        use Number::{Float, Signed, Unsigned, Null};
+        use Number::{Float, Null, Signed, Unsigned};
 
         match (*self, *other) {
             (Unsigned(a), Unsigned(b)) => a.cmp(&b),
@@ -104,17 +104,9 @@ pub struct ParseNumberError {
 impl fmt::Display for ParseNumberError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         if self.uint_error == self.int_error {
-            write!(
-                f,
-                "can not parse number: {}, {}",
-                self.uint_error, self.float_error
-            )
+            write!(f, "can not parse number: {}, {}", self.uint_error, self.float_error)
         } else {
-            write!(
-                f,
-                "can not parse number: {}, {}, {}",
-                self.uint_error, self.int_error, self.float_error
-            )
+            write!(f, "can not parse number: {}, {}, {}", self.uint_error, self.int_error, self.float_error)
         }
     }
 }

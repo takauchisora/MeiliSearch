@@ -37,9 +37,9 @@ impl Into<u16> for IndexedPos {
     }
 }
 
-#[derive(Debug, Copy, Clone, Default, PartialOrd, Ord, PartialEq, Eq, Hash)]
-#[derive(Serialize, Deserialize)]
-#[derive(AsBytes, FromBytes)]
+#[derive(
+    Debug, Copy, Clone, Default, PartialOrd, Ord, PartialEq, Eq, Hash, Serialize, Deserialize, AsBytes, FromBytes,
+)]
 #[repr(C)]
 pub struct FieldId(pub u16);
 

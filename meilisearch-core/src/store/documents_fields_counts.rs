@@ -1,10 +1,10 @@
 use super::DocumentFieldIndexedKey;
 use crate::database::MainT;
 use crate::DocumentId;
+use crate::MResult;
 use heed::types::OwnedType;
 use heed::Result as ZResult;
 use meilisearch_schema::IndexedPos;
-use crate::MResult;
 
 #[derive(Copy, Clone)]
 pub struct DocumentsFieldsCounts {

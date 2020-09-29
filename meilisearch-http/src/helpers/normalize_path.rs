@@ -16,12 +16,12 @@ where
     S: Service<Request = ServiceRequest, Response = ServiceResponse<B>, Error = Error>,
     S::Future: 'static,
 {
+    type Error = Error;
+    type Future = Ready<Result<Self::Transform, Self::InitError>>;
+    type InitError = ();
     type Request = ServiceRequest;
     type Response = ServiceResponse<B>;
-    type Error = Error;
-    type InitError = ();
     type Transform = NormalizePathNormalization<S>;
-    type Future = Ready<Result<Self::Transform, Self::InitError>>;
 
     fn new_transform(&self, service: S) -> Self::Future {
         ok(NormalizePathNormalization {
@@ -41,10 +41,10 @@ where
     S: Service<Request = ServiceRequest, Response = ServiceResponse<B>, Error = Error>,
     S::Future: 'static,
 {
-    type Request = ServiceRequest;
-    type Response = ServiceResponse<B>;
     type Error = Error;
     type Future = S::Future;
+    type Request = ServiceRequest;
+    type Response = ServiceResponse<B>;
 
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         self.service.poll_ready(cx)
@@ -60,11 +60,7 @@ where
             // normalize multiple /'s to one /
             let path = self.merge_slash.replace_all(&path, "/");
 
-            let path = if path.len() > 1 {
-                path.trim_end_matches('/')
-            } else {
-                &path
-            };
+            let path = if path.len() > 1 { path.trim_end_matches('/') } else { &path };
 
             let mut parts = head.uri.clone().into_parts();
             let pq = parts.path_and_query.as_ref().unwrap();

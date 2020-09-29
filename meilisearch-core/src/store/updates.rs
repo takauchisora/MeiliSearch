@@ -32,12 +32,7 @@ impl Updates {
         self.updates.get(reader, &update_id)
     }
 
-    pub fn put_update(
-        self,
-        writer: &mut heed::RwTxn<UpdateT>,
-        update_id: u64,
-        update: &Update,
-    ) -> ZResult<()> {
+    pub fn put_update(self, writer: &mut heed::RwTxn<UpdateT>, update_id: u64, update: &Update) -> ZResult<()> {
         // TODO prefer using serde_json?
         let update_id = BEU64::new(update_id);
         self.updates.put(writer, &update_id, update)

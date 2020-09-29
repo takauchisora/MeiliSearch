@@ -4,9 +4,9 @@ use actix_cors::Cors;
 use actix_web::{middleware, HttpServer};
 use main_error::MainError;
 use meilisearch_http::helpers::NormalizePath;
+use meilisearch_http::snapshot;
 use meilisearch_http::{create_app, index_update_callback, Data, Opt};
 use structopt::StructOpt;
-use meilisearch_http::snapshot;
 
 mod analytics;
 
@@ -19,30 +19,22 @@ async fn main() -> Result<(), MainError> {
     let opt = Opt::from_args();
 
     #[cfg(all(not(debug_assertions), feature = "sentry"))]
-    let _sentry = sentry::init((
-        if !opt.no_sentry {
-            Some(opt.sentry_dsn.clone())
-        } else {
-            None
-        },
-        sentry::ClientOptions {
+    let _sentry =
+        sentry::init((if !opt.no_sentry { Some(opt.sentry_dsn.clone()) } else { None }, sentry::ClientOptions {
             release: sentry::release_name!(),
             ..Default::default()
-        },
-    ));
+        }));
 
     match opt.env.as_ref() {
         "production" => {
             if opt.master_key.is_none() {
-                return Err(
-                    "In production mode, the environment variable MEILI_MASTER_KEY is mandatory"
-                        .into(),
-                );
+                return Err("In production mode, the environment variable MEILI_MASTER_KEY is mandatory".into());
             }
 
             #[cfg(all(not(debug_assertions), feature = "sentry"))]
             if !opt.no_sentry && _sentry.is_enabled() {
-                sentry::integrations::panic::register_panic_handler(); // TODO: This shouldn't be needed when upgrading to sentry 0.19.0. These integrations are turned on by default when using `sentry::init`.
+                sentry::integrations::panic::register_panic_handler(); // TODO: This shouldn't be needed when upgrading to sentry 0.19.0. These
+                                                                       // integrations are turned on by default when using `sentry::init`.
                 sentry::integrations::env_logger::init(None, Default::default());
             }
         }
@@ -90,10 +82,7 @@ async fn main() -> Result<(), MainError> {
     });
 
     if let Some(config) = opt.get_ssl_config()? {
-        http_server
-            .bind_rustls(opt.http_addr, config)?
-            .run()
-            .await?;
+        http_server.bind_rustls(opt.http_addr, config)?.run().await?;
     } else {
         http_server.bind(opt.http_addr)?.run().await?;
     }
@@ -119,41 +108,26 @@ pub fn print_launch_resume(opt: &Opt, data: &Data) {
     eprintln!("Server listening on:\t{:?}", opt.http_addr);
     eprintln!("Environment:\t\t{:?}", opt.env);
     eprintln!("Commit SHA:\t\t{:?}", env!("VERGEN_SHA").to_string());
-    eprintln!(
-        "Build date:\t\t{:?}",
-        env!("VERGEN_BUILD_TIMESTAMP").to_string()
-    );
-    eprintln!(
-        "Package version:\t{:?}",
-        env!("CARGO_PKG_VERSION").to_string()
-    );
+    eprintln!("Build date:\t\t{:?}", env!("VERGEN_BUILD_TIMESTAMP").to_string());
+    eprintln!("Package version:\t{:?}", env!("CARGO_PKG_VERSION").to_string());
 
     #[cfg(all(not(debug_assertions), feature = "sentry"))]
-    eprintln!(
-        "Sentry DSN:\t\t{:?}",
-        if !opt.no_sentry {
-            &opt.sentry_dsn
-        } else {
-            "Disabled"
-        }
-    );
+    eprintln!("Sentry DSN:\t\t{:?}", if !opt.no_sentry { &opt.sentry_dsn } else { "Disabled" });
 
-    eprintln!(
-        "Amplitude Analytics:\t{:?}",
-        if !opt.no_analytics {
-            "Enabled"
-        } else {
-            "Disabled"
-        }
-    );
+    eprintln!("Amplitude Analytics:\t{:?}", if !opt.no_analytics { "Enabled" } else { "Disabled" });
 
     eprintln!();
 
     if data.api_keys.master.is_some() {
-        eprintln!("A Master Key has been set. Requests to MeiliSearch won't be authorized unless you provide an authentication key.");
+        eprintln!(
+            "A Master Key has been set. Requests to MeiliSearch won't be authorized unless you provide an \
+             authentication key."
+        );
     } else {
-        eprintln!("No master key found; The server will accept unidentified requests. \
-            If you need some protection in development mode, please export a key: export MEILI_MASTER_KEY=xxx");
+        eprintln!(
+            "No master key found; The server will accept unidentified requests. If you need some protection in \
+             development mode, please export a key: export MEILI_MASTER_KEY=xxx"
+        );
     }
 
     eprintln!();

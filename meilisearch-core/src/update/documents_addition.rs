@@ -1,9 +1,9 @@
 use std::borrow::Cow;
-use std::collections::{HashMap, BTreeMap};
+use std::collections::{BTreeMap, HashMap};
 
 use fst::{set::OpBuilder, SetBuilder};
 use indexmap::IndexMap;
-use meilisearch_schema::{Schema, FieldId};
+use meilisearch_schema::{FieldId, Schema};
 use meilisearch_types::DocumentId;
 use sdset::{duo::Union, SetOperation};
 use serde::Deserialize;
@@ -14,8 +14,8 @@ use crate::database::{UpdateEvent, UpdateEventsEmitter};
 use crate::facets;
 use crate::raw_indexer::RawIndexer;
 use crate::serde::Deserializer;
-use crate::store::{self, DocumentsFields, DocumentsFieldsCounts, DiscoverIds};
-use crate::update::helpers::{index_value, value_to_number, extract_document_id};
+use crate::store::{self, DiscoverIds, DocumentsFields, DocumentsFieldsCounts};
+use crate::update::helpers::{extract_document_id, index_value, value_to_number};
 use crate::update::{apply_documents_deletion, compute_short_prefixes, next_update_id, Update};
 use crate::{Error, MResult, RankedMap};
 
@@ -121,7 +121,8 @@ fn index_document<A>(
     document_id: DocumentId,
     value: &Value,
 ) -> MResult<()>
-where A: AsRef<[u8]>,
+where
+    A: AsRef<[u8]>,
 {
     let serialized = serde_json::to_vec(value)?;
     documents_fields.put_document_field(writer, document_id, field_id, &serialized)?;
@@ -150,9 +151,8 @@ pub fn apply_addition<'a, 'b>(
     writer: &'a mut heed::RwTxn<'b, MainT>,
     index: &store::Index,
     new_documents: Vec<IndexMap<String, Value>>,
-    partial: bool
-) -> MResult<()>
-{
+    partial: bool,
+) -> MResult<()> {
     let mut schema = match index.main.schema(writer)? {
         Some(schema) => schema,
         None => return Err(Error::SchemaMissing),
@@ -171,21 +171,13 @@ pub fn apply_addition<'a, 'b>(
     let mut new_internal_docids = Vec::with_capacity(new_documents.len());
 
     for mut document in new_documents {
-        let external_docids_get = |docid: &str| {
-            match (external_docids.get(docid), new_external_docids.get(docid)) {
-                (_, Some(&id))
-                | (Some(id), _) => Some(id as u32),
-                (None, None) => None,
-            }
+        let external_docids_get = |docid: &str| match (external_docids.get(docid), new_external_docids.get(docid)) {
+            (_, Some(&id)) | (Some(id), _) => Some(id as u32),
+            (None, None) => None,
         };
 
         let (internal_docid, external_docid) =
-            extract_document_id(
-                &primary_key,
-                &document,
-                &external_docids_get,
-                &mut available_ids,
-            )?;
+            extract_document_id(&primary_key, &document, &external_docids_get, &mut available_ids)?;
 
         new_external_docids.insert(external_docid, internal_docid.0 as u64);
         new_internal_docids.push(internal_docid);
@@ -243,13 +235,7 @@ pub fn apply_addition<'a, 'b>(
         }
     }
 
-    write_documents_addition_index(
-        writer,
-        index,
-        &ranked_map,
-        number_of_inserted_documents,
-        indexer,
-    )?;
+    write_documents_addition_index(writer, index, &ranked_map, number_of_inserted_documents, indexer)?;
 
     index.main.put_schema(writer, &schema)?;
 
@@ -311,17 +297,15 @@ pub fn reindex_all_documents(writer: &mut heed::RwTxn<MainT>, index: &store::Ind
     index.postings_lists.clear(writer)?;
     index.docs_words.clear(writer)?;
 
-    let stop_words = index.main
-        .stop_words_fst(writer)?
-        .map_data(Cow::into_owned)
-        .unwrap();
+    let stop_words = index.main.stop_words_fst(writer)?.map_data(Cow::into_owned).unwrap();
 
     let number_of_inserted_documents = documents_ids_to_reindex.len();
     let mut indexer = RawIndexer::new(stop_words);
     let mut ram_store = HashMap::new();
 
     if let Some(ref attributes_for_facetting) = index.main.attributes_for_faceting(writer)? {
-        let facet_map = facets::facet_map_from_docids(writer, &index, &documents_ids_to_reindex, &attributes_for_facetting)?;
+        let facet_map =
+            facets::facet_map_from_docids(writer, &index, &documents_ids_to_reindex, &attributes_for_facetting)?;
         index.facets.add(writer, facet_map)?;
     }
     // ^-- https://github.com/meilisearch/MeiliSearch/pull/631#issuecomment-626624470 --v
@@ -349,13 +333,7 @@ pub fn reindex_all_documents(writer: &mut heed::RwTxn<MainT>, index: &store::Ind
     }
 
     // 4. write the new index in the main store
-    write_documents_addition_index(
-        writer,
-        index,
-        &ranked_map,
-        number_of_inserted_documents,
-        indexer,
-    )?;
+    write_documents_addition_index(writer, index, &ranked_map, number_of_inserted_documents, indexer)?;
 
     index.main.put_schema(writer, &schema)?;
 
@@ -380,7 +358,8 @@ pub fn write_documents_addition_index<A>(
     number_of_inserted_documents: usize,
     indexer: RawIndexer<A>,
 ) -> MResult<()>
-where A: AsRef<[u8]>,
+where
+    A: AsRef<[u8]>,
 {
     let indexed = indexer.build();
     let mut delta_words_builder = SetBuilder::memory();
@@ -404,10 +383,7 @@ where A: AsRef<[u8]>,
 
     let words_fst = index.main.words_fst(writer)?;
     let words = if !words_fst.is_empty() {
-        let op = OpBuilder::new()
-            .add(words_fst.stream())
-            .add(delta_words.stream())
-            .r#union();
+        let op = OpBuilder::new().add(words_fst.stream()).add(delta_words.stream()).r#union();
 
         let mut words_builder = SetBuilder::memory();
         words_builder.extend_stream(op).unwrap();
@@ -418,7 +394,9 @@ where A: AsRef<[u8]>,
 
     index.main.put_words_fst(writer, &words)?;
     index.main.put_ranked_map(writer, ranked_map)?;
-    index.main.put_number_of_documents(writer, |old| old + number_of_inserted_documents as u64)?;
+    index
+        .main
+        .put_number_of_documents(writer, |old| old + number_of_inserted_documents as u64)?;
 
     compute_short_prefixes(writer, &words, index)?;
 

@@ -4,14 +4,14 @@ use std::ops::{Deref, Range};
 use std::time::Duration;
 
 use either::Either;
-use sdset::{SetOperation, SetBuf, Set};
+use sdset::{Set, SetBuf, SetOperation};
 
 use meilisearch_schema::FieldId;
 
-use crate::bucket_sort::{bucket_sort, bucket_sort_with_distinct, SortResult, placeholder_document_sort, facet_count};
+use crate::bucket_sort::{bucket_sort, bucket_sort_with_distinct, facet_count, placeholder_document_sort, SortResult};
 use crate::database::MainT;
+use crate::distinct_map::{BufferedDistinctMap, DistinctMap};
 use crate::facets::FacetFilter;
-use crate::distinct_map::{DistinctMap, BufferedDistinctMap};
 use crate::Document;
 use crate::{criterion::Criteria, DocumentId};
 use crate::{reordered_attrs::ReorderedAttrs, store, MResult, MainReader};
@@ -78,8 +78,8 @@ impl<'c, 'f, 'd, 'i> QueryBuilder<'c, 'f, 'd, 'i> {
         reorders.insert_attribute(attribute);
     }
 
-    /// returns the documents ids associated with a facet filter by computing the union and
-    /// intersection of the document sets
+    /// returns the documents ids associated with a facet filter by computing
+    /// the union and intersection of the document sets
     fn facets_docids(&self, reader: &MainReader) -> MResult<Option<SetBuf<DocumentId>>> {
         let facet_docids = match self.facet_filter {
             Some(ref facets) => {
@@ -90,11 +90,7 @@ impl<'c, 'f, 'd, 'i> QueryBuilder<'c, 'f, 'd, 'i> {
                         Either::Left(keys) => {
                             ors.reserve(keys.len());
                             for key in keys {
-                                let docids = self
-                                    .index
-                                    .facets
-                                    .facet_document_ids(reader, &key)?
-                                    .unwrap_or_default();
+                                let docids = self.index.facets.facet_document_ids(reader, &key)?.unwrap_or_default();
                                 ors.push(docids);
                             }
                             let sets: Vec<_> = ors.iter().map(|(_, i)| i).map(Cow::deref).collect();
@@ -112,11 +108,7 @@ impl<'c, 'f, 'd, 'i> QueryBuilder<'c, 'f, 'd, 'i> {
                     };
                 }
                 let ands: Vec<_> = ands.iter().map(Cow::deref).collect();
-                Some(
-                    sdset::multi::OpBuilder::from_vec(ands)
-                    .intersection()
-                    .into_set_buf(),
-                )
+                Some(sdset::multi::OpBuilder::from_vec(ands).intersection().into_set_buf())
             }
             None => None,
         };
@@ -126,10 +118,12 @@ impl<'c, 'f, 'd, 'i> QueryBuilder<'c, 'f, 'd, 'i> {
     fn standard_query(self, reader: &MainReader, query: &str, range: Range<usize>) -> MResult<SortResult> {
         let facets_docids = match self.facets_docids(reader)? {
             Some(ids) if ids.is_empty() => return Ok(SortResult::default()),
-            other => other
+            other => other,
         };
-        // for each field to retrieve the count for, create an HashMap associating the attribute
-        // value to a set of matching documents. The HashMaps are them collected in another
+        // for each field to retrieve the count for, create an HashMap associating the
+        // attribute
+        // value to a set of matching documents. The HashMaps are them collected in
+        // another
         // HashMap, associating each HashMap to it's field.
         let facet_count_docids = self.facet_count_docids(reader)?;
 
@@ -170,7 +164,7 @@ impl<'c, 'f, 'd, 'i> QueryBuilder<'c, 'f, 'd, 'i> {
                     Some(ranked_map) => {
                         placeholder_document_sort(&mut sorted_docids, self.index, reader, &ranked_map)?;
                         self.sort_result_from_docids(&sorted_docids, range)
-                    },
+                    }
                     // if we can't perform a sort, we return documents unordered
                     None => self.sort_result_from_docids(&docids, range),
                 };
@@ -181,7 +175,7 @@ impl<'c, 'f, 'd, 'i> QueryBuilder<'c, 'f, 'd, 'i> {
                 }
 
                 Ok(sort_result)
-            },
+            }
             None => {
                 match self.index.main.sorted_document_ids_cache(reader)? {
                     // build result from cached document ids
@@ -196,7 +190,7 @@ impl<'c, 'f, 'd, 'i> QueryBuilder<'c, 'f, 'd, 'i> {
                         }
 
                         Ok(sort_result)
-                    },
+                    }
                     // no document id cached, return empty result
                     None => Ok(SortResult::default()),
                 }
@@ -204,7 +198,10 @@ impl<'c, 'f, 'd, 'i> QueryBuilder<'c, 'f, 'd, 'i> {
         }
     }
 
-    fn facet_count_docids<'a>(&self, reader: &'a MainReader) -> MResult<Option<HashMap<String, HashMap<String, (&'a str, Cow<'a, Set<DocumentId>>)>>>> {
+    fn facet_count_docids<'a>(
+        &self,
+        reader: &'a MainReader,
+    ) -> MResult<Option<HashMap<String, HashMap<String, (&'a str, Cow<'a, Set<DocumentId>>)>>>> {
         match self.facets {
             Some(ref field_ids) => {
                 let mut facet_count_map = HashMap::new();
@@ -260,12 +257,7 @@ impl<'c, 'f, 'd, 'i> QueryBuilder<'c, 'f, 'd, 'i> {
         sort_result
     }
 
-    pub fn query(
-        self,
-        reader: &heed::RoTxn<MainT>,
-        query: Option<&str>,
-        range: Range<usize>,
-    ) -> MResult<SortResult> {
+    pub fn query(self, reader: &heed::RoTxn<MainT>, query: Option<&str>, range: Range<usize>) -> MResult<SortResult> {
         match query {
             Some(query) => self.standard_query(reader, query, range),
             None => self.placeholder_query(reader, range),
@@ -359,15 +351,10 @@ mod tests {
 
             let word = normalize_str(word);
 
-            let alternatives = self
-                .index
-                .synonyms
-                .synonyms_fst(&writer, word.as_bytes())
-                .unwrap();
+            let alternatives = self.index.synonyms.synonyms_fst(&writer, word.as_bytes()).unwrap();
 
             let new = sdset_into_fstset(&new);
-            let new_alternatives =
-                set_from_stream(alternatives.op().add(new.into_stream()).r#union());
+            let new_alternatives = set_from_stream(alternatives.op().add(new.into_stream()).r#union());
             self.index
                 .synonyms
                 .put_synonyms(&mut writer, word.as_bytes(), &new_alternatives)
@@ -376,10 +363,7 @@ mod tests {
             let synonyms = self.index.main.synonyms_fst(&writer).unwrap();
 
             let synonyms_fst = insert_key(&synonyms, word.as_bytes());
-            self.index
-                .main
-                .put_synonyms_fst(&mut writer, &synonyms_fst)
-                .unwrap();
+            self.index.main.put_synonyms_fst(&mut writer, &synonyms_fst).unwrap();
 
             writer.commit().unwrap();
         }
@@ -454,7 +438,11 @@ mod tests {
 
             writer.commit().unwrap();
 
-            TempDatabase { database, index, _tempdir: tempdir }
+            TempDatabase {
+                database,
+                index,
+                _tempdir: tempdir,
+            }
         }
     }
 
@@ -517,7 +505,8 @@ mod tests {
 
     // #[test]
     // fn prefix_synonyms() {
-    //     let mut store = TempDatabase::from_iter(vec![("hello", &[doc_index(0, 0)][..])]);
+    //     let mut store = TempDatabase::from_iter(vec![("hello", &[doc_index(0,
+    // 0)][..])]);
 
     //     store.add_synonym("bonjour", SetBuf::from_dirty(vec!["hello"]));
     //     store.add_synonym("salut", SetBuf::from_dirty(vec!["hello"]));
@@ -529,10 +518,10 @@ mod tests {
     //     let results = builder.query(&reader, "sal", 0..20).unwrap();
     //     let mut iter = documents.into_iter();
 
-    //     assert_matches!(iter.next(), Some(Document { id: DocumentId(0), matches, .. }) => {
-    //         let mut matches = matches.into_iter();
-    //         assert_matches!(matches.next(), Some(SimpleMatch { query_index: 0, word_index: 0, .. }));
-    //         assert_matches!(matches.next(), None);
+    //     assert_matches!(iter.next(), Some(Document { id: DocumentId(0), matches,
+    // .. }) => {         let mut matches = matches.into_iter();
+    //         assert_matches!(matches.next(), Some(SimpleMatch { query_index: 0,
+    // word_index: 0, .. }));         assert_matches!(matches.next(), None);
     //     });
     //     assert_matches!(iter.next(), None);
 
@@ -540,10 +529,10 @@ mod tests {
     //     let results = builder.query(&reader, "bonj", 0..20).unwrap();
     //     let mut iter = documents.into_iter();
 
-    //     assert_matches!(iter.next(), Some(Document { id: DocumentId(0), matches, .. }) => {
-    //         let mut matches = matches.into_iter();
-    //         assert_matches!(matches.next(), Some(SimpleMatch { query_index: 0, word_index: 0, .. }));
-    //         assert_matches!(matches.next(), None);
+    //     assert_matches!(iter.next(), Some(Document { id: DocumentId(0), matches,
+    // .. }) => {         let mut matches = matches.into_iter();
+    //         assert_matches!(matches.next(), Some(SimpleMatch { query_index: 0,
+    // word_index: 0, .. }));         assert_matches!(matches.next(), None);
     //     });
     //     assert_matches!(iter.next(), None);
 
@@ -562,7 +551,8 @@ mod tests {
 
     // #[test]
     // fn levenshtein_synonyms() {
-    //     let mut store = TempDatabase::from_iter(vec![("hello", &[doc_index(0, 0)][..])]);
+    //     let mut store = TempDatabase::from_iter(vec![("hello", &[doc_index(0,
+    // 0)][..])]);
 
     //     store.add_synonym("salutation", SetBuf::from_dirty(vec!["hello"]));
 
@@ -573,10 +563,10 @@ mod tests {
     //     let results = builder.query(&reader, "salutution", 0..20).unwrap();
     //     let mut iter = documents.into_iter();
 
-    //     assert_matches!(iter.next(), Some(Document { id: DocumentId(0), matches, .. }) => {
-    //         let mut matches = matches.into_iter();
-    //         assert_matches!(matches.next(), Some(SimpleMatch { query_index: 0, word_index: 0, .. }));
-    //         assert_matches!(matches.next(), None);
+    //     assert_matches!(iter.next(), Some(Document { id: DocumentId(0), matches,
+    // .. }) => {         let mut matches = matches.into_iter();
+    //         assert_matches!(matches.next(), Some(SimpleMatch { query_index: 0,
+    // word_index: 0, .. }));         assert_matches!(matches.next(), None);
     //     });
     //     assert_matches!(iter.next(), None);
 
@@ -584,10 +574,10 @@ mod tests {
     //     let results = builder.query(&reader, "saluttion", 0..20).unwrap();
     //     let mut iter = documents.into_iter();
 
-    //     assert_matches!(iter.next(), Some(Document { id: DocumentId(0), matches, .. }) => {
-    //         let mut matches = matches.into_iter();
-    //         assert_matches!(matches.next(), Some(SimpleMatch { query_index: 0, word_index: 0, .. }));
-    //         assert_matches!(matches.next(), None);
+    //     assert_matches!(iter.next(), Some(Document { id: DocumentId(0), matches,
+    // .. }) => {         let mut matches = matches.into_iter();
+    //         assert_matches!(matches.next(), Some(SimpleMatch { query_index: 0,
+    // word_index: 0, .. }));         assert_matches!(matches.next(), None);
     //     });
     //     assert_matches!(iter.next(), None);
     // }
@@ -683,14 +673,8 @@ mod tests {
             ("subway", &[doc_char_index(1, 1, 1)][..]),
         ]);
 
-        store.add_synonym(
-            "NY",
-            SetBuf::from_dirty(vec!["NYC", "new york", "new york city"]),
-        );
-        store.add_synonym(
-            "NYC",
-            SetBuf::from_dirty(vec!["NY", "new york", "new york city"]),
-        );
+        store.add_synonym("NY", SetBuf::from_dirty(vec!["NYC", "new york", "new york city"]));
+        store.add_synonym("NYC", SetBuf::from_dirty(vec!["NY", "new york", "new york city"]));
 
         let db = &store.database;
         let reader = db.main_read_txn().unwrap();
@@ -827,16 +811,17 @@ mod tests {
             assert_matches!(matches.next(), Some(SimpleMatch { query_index: 1, word_index: 1, is_exact: true, .. })); // subway
             assert_matches!(matches.next(), None);
         });
-        // assert_matches!(iter.next(), Some(Document { id: DocumentId(1), matches, .. }) => {
+        // assert_matches!(iter.next(), Some(Document { id: DocumentId(1), matches, ..
+        // }) => {
         //     let mut matches = matches.into_iter();
-        //     assert_matches!(matches.next(), Some(SimpleMatch { query_index: 1, word_index: 2, is_exact: true, .. })); // subway
+        //     assert_matches!(matches.next(), Some(SimpleMatch { query_index: 1,
+        // word_index: 2, is_exact: true, .. })); // subway
         //     assert_matches!(matches.next(), None);
         // });
         assert_matches!(iter.next(), None);
 
         let builder = store.query_builder();
-        let SortResult { documents, .. } =
-            builder.query(&reader, Some("new york subway"), 0..20).unwrap();
+        let SortResult { documents, .. } = builder.query(&reader, Some("new york subway"), 0..20).unwrap();
         let mut iter = documents.into_iter();
 
         assert_matches!(iter.next(), Some(Document { id: DocumentId(1), matches, .. }) => {
@@ -871,14 +856,8 @@ mod tests {
             ("subway", &[doc_char_index(1, 2, 2)][..]),
         ]);
 
-        store.add_synonym(
-            "NY",
-            SetBuf::from_dirty(vec!["NYC", "new york", "new york city"]),
-        );
-        store.add_synonym(
-            "NYC",
-            SetBuf::from_dirty(vec!["NY", "new york", "new york city"]),
-        );
+        store.add_synonym("NY", SetBuf::from_dirty(vec!["NYC", "new york", "new york city"]));
+        store.add_synonym("NYC", SetBuf::from_dirty(vec!["NY", "new york", "new york city"]));
 
         let db = &store.database;
         let reader = db.main_read_txn().unwrap();
@@ -945,21 +924,15 @@ mod tests {
             ("subway", &[doc_char_index(1, 2, 2)][..]),
         ]);
 
-        store.add_synonym(
-            "NY",
-            SetBuf::from_dirty(vec!["NYC", "new york", "new york city"]),
-        );
-        store.add_synonym(
-            "NYC",
-            SetBuf::from_dirty(vec!["NY", "new york", "new york city"]),
-        );
+        store.add_synonym("NY", SetBuf::from_dirty(vec!["NYC", "new york", "new york city"]));
+        store.add_synonym("NYC", SetBuf::from_dirty(vec!["NY", "new york", "new york city"]));
         store.add_synonym("subway", SetBuf::from_dirty(vec!["underground train"]));
 
         let db = &store.database;
         let reader = db.main_read_txn().unwrap();
 
         let builder = store.query_builder();
-        let SortResult {documents, .. } = builder.query(&reader, Some("NY subway broken"), 0..20).unwrap();
+        let SortResult { documents, .. } = builder.query(&reader, Some("NY subway broken"), 0..20).unwrap();
         let mut iter = documents.into_iter();
 
         assert_matches!(iter.next(), Some(Document { id: DocumentId(0), matches, .. }) => {
@@ -1017,14 +990,8 @@ mod tests {
             ("broken", &[doc_char_index(2, 4, 4)][..]),
         ]);
 
-        store.add_synonym(
-            "new york",
-            SetBuf::from_dirty(vec!["NYC", "NY", "new york city"]),
-        );
-        store.add_synonym(
-            "new york city",
-            SetBuf::from_dirty(vec!["NYC", "NY", "new york"]),
-        );
+        store.add_synonym("new york", SetBuf::from_dirty(vec!["NYC", "NY", "new york city"]));
+        store.add_synonym("new york city", SetBuf::from_dirty(vec!["NYC", "NY", "new york"]));
         store.add_synonym("underground train", SetBuf::from_dirty(vec!["subway"]));
 
         let db = &store.database;
@@ -1189,9 +1156,8 @@ mod tests {
         let reader = db.main_read_txn().unwrap();
 
         let builder = store.query_builder();
-        let SortResult { documents, .. } = builder
-            .query(&reader, Some("new york city long subway cool "), 0..20)
-            .unwrap();
+        let SortResult { documents, .. } =
+            builder.query(&reader, Some("new york city long subway cool "), 0..20).unwrap();
         let mut iter = documents.into_iter();
 
         assert_matches!(iter.next(), Some(Document { id: DocumentId(0), matches, .. }) => {
@@ -1274,10 +1240,7 @@ mod tests {
 
     #[test]
     fn simple_concatenation() {
-        let store = TempDatabase::from_iter(vec![
-            ("iphone", &[doc_index(0, 0)][..]),
-            ("case", &[doc_index(0, 1)][..]),
-        ]);
+        let store = TempDatabase::from_iter(vec![("iphone", &[doc_index(0, 0)][..]), ("case", &[doc_index(0, 1)][..])]);
 
         let db = &store.database;
         let reader = db.main_read_txn().unwrap();
@@ -1303,7 +1266,7 @@ mod tests {
         let store = TempDatabase::from_iter(vec![
             ("searchengine", &[doc_index(0, 0)][..]),
             ("searchengine", &[doc_index(1, 0)][..]),
-            ("blue",         &[doc_index(1, 1)][..]),
+            ("blue", &[doc_index(1, 1)][..]),
             ("searchangine", &[doc_index(2, 0)][..]),
             ("searchengine", &[doc_index(3, 0)][..]),
         ]);

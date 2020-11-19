@@ -1576,7 +1576,6 @@ dependencies = [
  "log",
  "meilisearch-error",
  "meilisearch-schema",
- "meilisearch-tokenizer",
  "meilisearch-types",
  "once_cell",
  "ordered-float",
@@ -1626,7 +1625,6 @@ dependencies = [
  "meilisearch-core",
  "meilisearch-error",
  "meilisearch-schema",
- "meilisearch-tokenizer",
  "mime",
  "once_cell",
  "rand 0.7.3",
@@ -1660,14 +1658,6 @@ dependencies = [
  "serde",
  "serde_json",
  "zerocopy",
-]
-
-[[package]]
-name = "meilisearch-tokenizer"
-version = "0.16.0"
-dependencies = [
- "deunicode",
- "slice-group-by",
 ]
 
 [[package]]

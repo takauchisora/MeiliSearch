@@ -1711,6 +1711,7 @@ dependencies = [
  "character_converter",
  "cow-utils",
  "deunicode",
+ "fst",
  "jieba-rs",
  "once_cell",
  "slice-group-by",
